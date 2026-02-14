@@ -1,0 +1,55 @@
+import type { Plugin } from "@opencode-ai/plugin";
+import { load_config } from "./config";
+import { create_notifier_hub } from "./notify";
+import type { ShellFn } from "./notify/macos";
+import { adapt_plugin_event } from "./sources/plugin-adapter";
+import { cleanup_stale, write_state } from "./state";
+import type { OcnStatus } from "./types";
+import { create_logger } from "./util/log";
+
+export const OcnPlugin: Plugin = async ({ directory, $ }) => {
+	const config = load_config();
+	const log = create_logger();
+	const hub = create_notifier_hub(config, $ as unknown as ShellFn);
+	const instance_id = `${process.pid}`;
+	const project_name = directory.split("/").pop() ?? "unknown";
+
+	cleanup_stale(config.state_dir);
+	log.info("initialized", { project: project_name, instance_id });
+
+	let current_status: OcnStatus = "idle";
+
+	return {
+		event: async ({ event }) => {
+			const ocn_event = adapt_plugin_event(event as { type: string; properties: Record<string, unknown> }, {
+				directory,
+				project_name,
+				pid: process.pid,
+			});
+			if (!ocn_event) return;
+
+			const previous = current_status;
+			current_status = ocn_event.status;
+
+			write_state(
+				instance_id,
+				{
+					pid: process.pid,
+					directory,
+					project: project_name,
+					status: current_status,
+					last_transition: new Date().toISOString(),
+					session_id: ocn_event.session_id,
+				},
+				config.state_dir,
+			);
+
+			if (previous !== current_status) {
+				log.debug("transition", { from: previous, to: current_status });
+				await hub.notify(ocn_event);
+			}
+		},
+	};
+};
+
+export default OcnPlugin;
