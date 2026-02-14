@@ -3,6 +3,7 @@ import type { OcnEvent } from "../types";
 import { create_bell_notifier } from "./bell";
 import type { ShellFn } from "./macos";
 import { create_macos_notifier } from "./macos";
+import { create_tmux_pane_notifier } from "./tmux";
 import type { NotificationEvent, Notifier } from "./types";
 
 export type NotifierHub = {
@@ -17,6 +18,9 @@ export function create_notifier_hub(config: OcnConfig, $?: ShellFn): NotifierHub
 	}
 	if (config.notify.bell.enabled) {
 		notifiers.push(create_bell_notifier());
+	}
+	if (config.notify.tmux_pane.enabled) {
+		notifiers.push(create_tmux_pane_notifier());
 	}
 
 	let last_notify_time = 0;

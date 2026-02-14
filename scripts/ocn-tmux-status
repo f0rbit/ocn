@@ -1,0 +1,18 @@
+#!/usr/bin/env bun
+
+import { cleanup_stale, read_all_states } from "../src/state";
+import { render_json_status, render_tmux_status } from "../src/tmux-status";
+import { load_config } from "../src/config";
+
+const config = load_config();
+const args = process.argv.slice(2);
+
+cleanup_stale(config.state_dir);
+
+const states = read_all_states(config.state_dir);
+
+if (args.includes("--json")) {
+	process.stdout.write(render_json_status(states));
+} else {
+	process.stdout.write(render_tmux_status(states, config.theme));
+}
