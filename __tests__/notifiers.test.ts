@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
+import type { OcnConfig } from "../src/config";
 import { create_bell_notifier } from "../src/notify/bell";
+import { create_notifier_hub } from "../src/notify/index";
 import type { NotificationEvent, Notifier } from "../src/notify/types";
+import type { OcnEvent } from "../src/types";
 
 // A fake notifier that records calls for assertion
 function create_fake_notifier(name = "fake"): Notifier & { calls: NotificationEvent[] } {
@@ -52,5 +55,84 @@ describe("bell notifier", () => {
 		const notifier = create_bell_notifier();
 		// We can't easily test stdout output, but we can verify it doesn't throw
 		await notifier.notify(make_event());
+	});
+});
+
+const make_ocn_event = (overrides?: Partial<OcnEvent>): OcnEvent => ({
+	source: "plugin",
+	status: "idle",
+	directory: "/Users/tom/dev/test",
+	project: "test",
+	pid: 1234,
+	timestamp: new Date().toISOString(),
+	...overrides,
+});
+
+const make_hub_config = (overrides?: Partial<OcnConfig>): OcnConfig => ({
+	notify: {
+		macos: { enabled: false, on_idle: true, on_prompt: true, on_error: true },
+		bell: { enabled: false },
+		tmux_pane: { enabled: false },
+	},
+	debounce_ms: 0,
+	state_dir: "/tmp/ocn-test",
+	theme: "plain",
+	...overrides,
+});
+
+describe("notifier hub subtask filtering", () => {
+	it("does not notify when is_subtask is true", async () => {
+		const fake = create_fake_notifier();
+		const hub = create_notifier_hub(make_hub_config(), undefined, [fake]);
+
+		await hub.notify(make_ocn_event({ status: "idle", is_subtask: true }));
+		await hub.notify(make_ocn_event({ status: "error", is_subtask: true }));
+		await hub.notify(make_ocn_event({ status: "prompting", is_subtask: true }));
+
+		expect(fake.calls).toHaveLength(0);
+	});
+
+	it("does notify when is_subtask is false", async () => {
+		const fake = create_fake_notifier();
+		const hub = create_notifier_hub(make_hub_config(), undefined, [fake]);
+
+		await hub.notify(make_ocn_event({ status: "idle", is_subtask: false }));
+
+		expect(fake.calls).toHaveLength(1);
+		expect(fake.calls[0].type).toBe("idle");
+	});
+
+	it("does notify when is_subtask is undefined", async () => {
+		const fake = create_fake_notifier();
+		const hub = create_notifier_hub(make_hub_config(), undefined, [fake]);
+
+		await hub.notify(make_ocn_event({ status: "idle" }));
+
+		expect(fake.calls).toHaveLength(1);
+	});
+
+	it("still filters busy events", async () => {
+		const fake = create_fake_notifier();
+		const hub = create_notifier_hub(make_hub_config(), undefined, [fake]);
+
+		await hub.notify(make_ocn_event({ status: "busy" }));
+
+		expect(fake.calls).toHaveLength(0);
+	});
+
+	it("subtask filter applies before notifier dispatch for all statuses", async () => {
+		const fake = create_fake_notifier();
+		const hub = create_notifier_hub(make_hub_config(), undefined, [fake]);
+
+		await hub.notify(make_ocn_event({ status: "idle", is_subtask: true }));
+		await hub.notify(make_ocn_event({ status: "prompting", is_subtask: true }));
+		await hub.notify(make_ocn_event({ status: "error", is_subtask: true }));
+
+		expect(fake.calls).toHaveLength(0);
+
+		// Non-subtask events do go through
+		await hub.notify(make_ocn_event({ status: "error" }));
+		expect(fake.calls).toHaveLength(1);
+		expect(fake.calls[0].type).toBe("error");
 	});
 });

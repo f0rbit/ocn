@@ -10,17 +10,19 @@ export type NotifierHub = {
 	notify: (event: OcnEvent) => Promise<void>;
 };
 
-export function create_notifier_hub(config: OcnConfig, $?: ShellFn): NotifierHub {
-	const notifiers: Notifier[] = [];
+export function create_notifier_hub(config: OcnConfig, $?: ShellFn, injected_notifiers?: Notifier[]): NotifierHub {
+	const notifiers: Notifier[] = injected_notifiers ?? [];
 
-	if (config.notify.macos.enabled) {
-		notifiers.push(create_macos_notifier($));
-	}
-	if (config.notify.bell.enabled) {
-		notifiers.push(create_bell_notifier());
-	}
-	if (config.notify.tmux_pane.enabled) {
-		notifiers.push(create_tmux_pane_notifier());
+	if (!injected_notifiers) {
+		if (config.notify.macos.enabled) {
+			notifiers.push(create_macos_notifier($));
+		}
+		if (config.notify.bell.enabled) {
+			notifiers.push(create_bell_notifier());
+		}
+		if (config.notify.tmux_pane.enabled) {
+			notifiers.push(create_tmux_pane_notifier());
+		}
 	}
 
 	let last_notify_time = 0;
@@ -28,6 +30,7 @@ export function create_notifier_hub(config: OcnConfig, $?: ShellFn): NotifierHub
 	return {
 		notify: async (event: OcnEvent) => {
 			if (event.status === "busy") return;
+			if (event.is_subtask) return;
 
 			const notification = to_notification_event(event, config);
 			if (!notification) return;
