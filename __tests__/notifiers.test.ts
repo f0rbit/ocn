@@ -80,6 +80,110 @@ const make_hub_config = (overrides?: Partial<OcnConfig>): OcnConfig => ({
 	...overrides,
 });
 
+describe("notifier hub debounce", () => {
+	it("suppresses rapid events within debounce window", async () => {
+		const fake = create_fake_notifier();
+		const hub = create_notifier_hub(make_hub_config({ debounce_ms: 5000 }), undefined, [fake]);
+
+		await hub.notify(make_ocn_event({ status: "idle" }));
+		await hub.notify(make_ocn_event({ status: "idle" }));
+		await hub.notify(make_ocn_event({ status: "error" }));
+
+		expect(fake.calls).toHaveLength(1);
+		expect(fake.calls[0].type).toBe("idle");
+	});
+
+	it("always allows the first event through", async () => {
+		const fake = create_fake_notifier();
+		const hub = create_notifier_hub(make_hub_config({ debounce_ms: 60000 }), undefined, [fake]);
+
+		await hub.notify(make_ocn_event({ status: "error" }));
+
+		expect(fake.calls).toHaveLength(1);
+		expect(fake.calls[0].type).toBe("error");
+	});
+
+	it("does not debounce when debounce_ms is 0", async () => {
+		const fake = create_fake_notifier();
+		const hub = create_notifier_hub(make_hub_config({ debounce_ms: 0 }), undefined, [fake]);
+
+		await hub.notify(make_ocn_event({ status: "idle" }));
+		await hub.notify(make_ocn_event({ status: "error" }));
+		await hub.notify(make_ocn_event({ status: "prompting" }));
+
+		expect(fake.calls).toHaveLength(3);
+	});
+});
+
+describe("notifier hub config gating", () => {
+	it("on_idle: false suppresses idle notifications", async () => {
+		const fake = create_fake_notifier();
+		const config = make_hub_config({
+			notify: {
+				macos: { enabled: false, on_idle: false, on_prompt: true, on_error: true },
+				bell: { enabled: false },
+				tmux_pane: { enabled: false },
+			},
+		});
+		const hub = create_notifier_hub(config, undefined, [fake]);
+
+		await hub.notify(make_ocn_event({ status: "idle" }));
+
+		expect(fake.calls).toHaveLength(0);
+	});
+
+	it("on_prompt: false suppresses prompting notifications", async () => {
+		const fake = create_fake_notifier();
+		const config = make_hub_config({
+			notify: {
+				macos: { enabled: false, on_idle: true, on_prompt: false, on_error: true },
+				bell: { enabled: false },
+				tmux_pane: { enabled: false },
+			},
+		});
+		const hub = create_notifier_hub(config, undefined, [fake]);
+
+		await hub.notify(make_ocn_event({ status: "prompting" }));
+
+		expect(fake.calls).toHaveLength(0);
+	});
+
+	it("on_error: false suppresses error notifications", async () => {
+		const fake = create_fake_notifier();
+		const config = make_hub_config({
+			notify: {
+				macos: { enabled: false, on_idle: true, on_prompt: true, on_error: false },
+				bell: { enabled: false },
+				tmux_pane: { enabled: false },
+			},
+		});
+		const hub = create_notifier_hub(config, undefined, [fake]);
+
+		await hub.notify(make_ocn_event({ status: "error" }));
+
+		expect(fake.calls).toHaveLength(0);
+	});
+
+	it("gated event does not affect debounce timer", async () => {
+		const fake = create_fake_notifier();
+		const config = make_hub_config({
+			debounce_ms: 5000,
+			notify: {
+				macos: { enabled: false, on_idle: false, on_prompt: true, on_error: true },
+				bell: { enabled: false },
+				tmux_pane: { enabled: false },
+			},
+		});
+		const hub = create_notifier_hub(config, undefined, [fake]);
+
+		await hub.notify(make_ocn_event({ status: "idle" }));
+		await hub.notify(make_ocn_event({ status: "error" }));
+
+		expect(fake.calls).toHaveLength(1);
+		expect(fake.calls[0].type).toBe("error");
+	});
+});
+
 describe("notifier hub subtask filtering", () => {
 	it("does not notify when is_subtask is true", async () => {
 		const fake = create_fake_notifier();

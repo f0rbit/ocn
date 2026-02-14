@@ -111,7 +111,3 @@ export function create_plugin_adapter(): PluginAdapter {
 		},
 	};
 }
-
-export function adapt_plugin_event(event: PluginEvent, ctx: PluginContext): OcnEvent | null {
-	return create_plugin_adapter().adapt(event, ctx);
-}

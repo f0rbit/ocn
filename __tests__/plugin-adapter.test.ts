@@ -7,7 +7,7 @@ const ctx = {
 	pid: 1234,
 };
 
-describe("adapt_plugin_event", () => {
+describe("create_plugin_adapter", () => {
 	it("maps session.idle to idle status", () => {
 		const adapter = create_plugin_adapter();
 		const result = adapter.adapt({ type: "session.idle", properties: { sessionID: "ses_1" } }, ctx);
