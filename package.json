@@ -1,11 +1,19 @@
 {
 	"name": "ocn",
 	"version": "0.1.0",
+	"description": "Terminal-native session notifications for OpenCode",
 	"type": "module",
 	"main": "src/plugin.ts",
 	"bin": {
 		"ocn-tmux-status": "scripts/ocn-tmux-status",
 		"ocn-status": "scripts/ocn-status"
+	},
+	"files": ["src", "scripts", "README.md"],
+	"keywords": ["opencode", "notifications", "tmux"],
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/f0rbit/ocn.git"
 	},
 	"scripts": {
 		"test": "bun test",

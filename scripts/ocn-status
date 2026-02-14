@@ -1,0 +1,61 @@
+#!/usr/bin/env bun
+
+import { cleanup_stale, read_all_states } from "../src/state";
+import { load_config } from "../src/config";
+
+const config = load_config();
+
+cleanup_stale(config.state_dir);
+
+const states = read_all_states(config.state_dir);
+
+if (states.length === 0) {
+	console.log("No active opencode instances.");
+	process.exit(0);
+}
+
+const STATUS_ICON: Record<string, string> = {
+	idle: "✓",
+	busy: "~",
+	prompting: "!",
+	error: "✗",
+};
+
+const STATUS_COLOR: Record<string, string> = {
+	idle: "\x1b[32m",
+	busy: "\x1b[33m",
+	prompting: "\x1b[31m",
+	error: "\x1b[31m",
+};
+
+const RESET = "\x1b[0m";
+const DIM = "\x1b[2m";
+const BOLD = "\x1b[1m";
+
+console.log(`${BOLD}  PID      STATUS      PROJECT       DIRECTORY${RESET}`);
+console.log(`${DIM}${"─".repeat(70)}${RESET}`);
+
+for (const s of states) {
+	const icon = STATUS_ICON[s.status] ?? "?";
+	const color = STATUS_COLOR[s.status] ?? "";
+	const status_str = `${color}${icon} ${s.status.padEnd(9)}${RESET}`;
+	const pid_str = String(s.pid).padEnd(8);
+	const project_str = s.project.padEnd(13);
+	const dir = s.directory;
+
+	console.log(`  ${pid_str} ${status_str} ${project_str} ${DIM}${dir}${RESET}`);
+}
+
+const counts: Record<string, number> = {};
+for (const s of states) {
+	counts[s.status] = (counts[s.status] ?? 0) + 1;
+}
+
+const summary_parts = Object.entries(counts)
+	.map(([status, count]) => {
+		const color = STATUS_COLOR[status] ?? "";
+		return `${color}${count} ${status}${RESET}`;
+	})
+	.join(", ");
+
+console.log(`\n${DIM}Total: ${states.length} instances (${summary_parts}${DIM})${RESET}`);
