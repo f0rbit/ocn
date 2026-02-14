@@ -1,3 +1,8 @@
+-- ocn sketchybar widget
+-- Drop-in for ~/.config/sketchybar/items/widgets/
+-- Requires: ocn-tmux-status in PATH (or use full path to bun + script)
+-- Uses settings from your sketchybar config.settings module
+
 local settings = require("config.settings")
 local colors = settings.colors
 
