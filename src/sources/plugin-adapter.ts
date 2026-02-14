@@ -1,6 +1,6 @@
 import type { OcnEvent } from "../types";
 
-type PluginContext = {
+export type PluginContext = {
 	directory: string;
 	project_name: string;
 	pid: number;
@@ -8,9 +8,13 @@ type PluginContext = {
 
 // The opencode plugin event type - we use a loose shape here to avoid
 // tight coupling to the SDK's internal Event union type
-type PluginEvent = {
+export type PluginEvent = {
 	type: string;
 	properties: Record<string, unknown>;
+};
+
+export type PluginAdapter = {
+	adapt: (event: PluginEvent, ctx: PluginContext) => OcnEvent | null;
 };
 
 function str(value: unknown): string | undefined {
@@ -21,7 +25,7 @@ function obj(value: unknown): Record<string, unknown> | undefined {
 	return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined;
 }
 
-export function adapt_plugin_event(event: PluginEvent, ctx: PluginContext): OcnEvent | null {
+function adapt_event(event: PluginEvent, ctx: PluginContext): OcnEvent | null {
 	const p = event.properties;
 	const base = {
 		source: "plugin" as const,
@@ -80,4 +84,34 @@ export function adapt_plugin_event(event: PluginEvent, ctx: PluginContext): OcnE
 		default:
 			return null;
 	}
+}
+
+export function create_plugin_adapter(): PluginAdapter {
+	const child_sessions = new Set<string>();
+
+	return {
+		adapt(event, ctx) {
+			if (event.type === "session.created") {
+				const info = obj(event.properties.info);
+				if (info && str(info.parentID)) {
+					const id = str(info.id);
+					if (id) child_sessions.add(id);
+				}
+				return null;
+			}
+
+			const ocn_event = adapt_event(event, ctx);
+			if (!ocn_event) return null;
+
+			if (ocn_event.session_id && child_sessions.has(ocn_event.session_id)) {
+				ocn_event.is_subtask = true;
+			}
+
+			return ocn_event;
+		},
+	};
+}
+
+export function adapt_plugin_event(event: PluginEvent, ctx: PluginContext): OcnEvent | null {
+	return create_plugin_adapter().adapt(event, ctx);
 }

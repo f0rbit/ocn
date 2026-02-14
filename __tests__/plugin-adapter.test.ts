@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { adapt_plugin_event } from "../src/sources/plugin-adapter";
+import { create_plugin_adapter } from "../src/sources/plugin-adapter";
 
 const ctx = {
 	directory: "/Users/tom/dev/test",
@@ -9,7 +9,8 @@ const ctx = {
 
 describe("adapt_plugin_event", () => {
 	it("maps session.idle to idle status", () => {
-		const result = adapt_plugin_event({ type: "session.idle", properties: { sessionID: "ses_1" } }, ctx);
+		const adapter = create_plugin_adapter();
+		const result = adapter.adapt({ type: "session.idle", properties: { sessionID: "ses_1" } }, ctx);
 		expect(result).not.toBeNull();
 		expect(result?.status).toBe("idle");
 		expect(result?.session_id).toBe("ses_1");
@@ -18,7 +19,8 @@ describe("adapt_plugin_event", () => {
 	});
 
 	it("maps session.error to error status", () => {
-		const result = adapt_plugin_event(
+		const adapter = create_plugin_adapter();
+		const result = adapter.adapt(
 			{
 				type: "session.error",
 				properties: {
@@ -34,7 +36,8 @@ describe("adapt_plugin_event", () => {
 	});
 
 	it("maps permission.updated to prompting status", () => {
-		const result = adapt_plugin_event(
+		const adapter = create_plugin_adapter();
+		const result = adapter.adapt(
 			{
 				type: "permission.updated",
 				properties: {
@@ -51,7 +54,8 @@ describe("adapt_plugin_event", () => {
 	});
 
 	it("maps permission.replied to busy status", () => {
-		const result = adapt_plugin_event(
+		const adapter = create_plugin_adapter();
+		const result = adapter.adapt(
 			{
 				type: "permission.replied",
 				properties: {
@@ -67,7 +71,8 @@ describe("adapt_plugin_event", () => {
 	});
 
 	it("maps session.status busy to busy", () => {
-		const result = adapt_plugin_event(
+		const adapter = create_plugin_adapter();
+		const result = adapter.adapt(
 			{
 				type: "session.status",
 				properties: { sessionID: "ses_1", status: { type: "busy" } },
@@ -79,7 +84,8 @@ describe("adapt_plugin_event", () => {
 	});
 
 	it("maps session.status idle to idle", () => {
-		const result = adapt_plugin_event(
+		const adapter = create_plugin_adapter();
+		const result = adapter.adapt(
 			{
 				type: "session.status",
 				properties: { sessionID: "ses_1", status: { type: "idle" } },
@@ -91,7 +97,8 @@ describe("adapt_plugin_event", () => {
 	});
 
 	it("maps session.status retry to busy", () => {
-		const result = adapt_plugin_event(
+		const adapter = create_plugin_adapter();
+		const result = adapter.adapt(
 			{
 				type: "session.status",
 				properties: { sessionID: "ses_1", status: { type: "retry" } },
@@ -103,12 +110,14 @@ describe("adapt_plugin_event", () => {
 	});
 
 	it("returns null for unknown event types", () => {
-		expect(adapt_plugin_event({ type: "config.updated", properties: {} }, ctx)).toBeNull();
+		const adapter = create_plugin_adapter();
+		expect(adapter.adapt({ type: "config.updated", properties: {} }, ctx)).toBeNull();
 	});
 
 	it("returns null for session.status with unknown status type", () => {
+		const adapter = create_plugin_adapter();
 		expect(
-			adapt_plugin_event(
+			adapter.adapt(
 				{
 					type: "session.status",
 					properties: { sessionID: "ses_1", status: { type: "unknown" } },
@@ -119,9 +128,93 @@ describe("adapt_plugin_event", () => {
 	});
 
 	it("includes correct metadata in all events", () => {
-		const result = adapt_plugin_event({ type: "session.idle", properties: { sessionID: "ses_1" } }, ctx);
+		const adapter = create_plugin_adapter();
+		const result = adapter.adapt({ type: "session.idle", properties: { sessionID: "ses_1" } }, ctx);
 		expect(result?.directory).toBe("/Users/tom/dev/test");
 		expect(result?.pid).toBe(1234);
 		expect(result?.timestamp).toBeDefined();
+	});
+});
+
+describe("session hierarchy tracking", () => {
+	it("session.created returns null", () => {
+		const adapter = create_plugin_adapter();
+		const result = adapter.adapt(
+			{
+				type: "session.created",
+				properties: { info: { id: "ses_child", parentID: "ses_parent" } },
+			},
+			ctx,
+		);
+		expect(result).toBeNull();
+	});
+
+	it("session.created with parentID registers child — subsequent idle has is_subtask true", () => {
+		const adapter = create_plugin_adapter();
+		adapter.adapt(
+			{
+				type: "session.created",
+				properties: { info: { id: "ses_child", parentID: "ses_parent" } },
+			},
+			ctx,
+		);
+
+		const result = adapter.adapt({ type: "session.idle", properties: { sessionID: "ses_child" } }, ctx);
+		expect(result).not.toBeNull();
+		expect(result?.is_subtask).toBe(true);
+	});
+
+	it("session.idle for a non-child session does NOT have is_subtask", () => {
+		const adapter = create_plugin_adapter();
+		const result = adapter.adapt({ type: "session.idle", properties: { sessionID: "ses_top" } }, ctx);
+		expect(result).not.toBeNull();
+		expect(result?.is_subtask).toBeUndefined();
+	});
+
+	it("session.created without parentID does NOT register as child", () => {
+		const adapter = create_plugin_adapter();
+		adapter.adapt(
+			{
+				type: "session.created",
+				properties: { info: { id: "ses_top" } },
+			},
+			ctx,
+		);
+
+		const result = adapter.adapt({ type: "session.idle", properties: { sessionID: "ses_top" } }, ctx);
+		expect(result).not.toBeNull();
+		expect(result?.is_subtask).toBeUndefined();
+	});
+
+	it("multiple event types for a registered child all get is_subtask true", () => {
+		const adapter = create_plugin_adapter();
+		adapter.adapt(
+			{
+				type: "session.created",
+				properties: { info: { id: "ses_child", parentID: "ses_parent" } },
+			},
+			ctx,
+		);
+
+		const idle = adapter.adapt({ type: "session.idle", properties: { sessionID: "ses_child" } }, ctx);
+		expect(idle?.is_subtask).toBe(true);
+
+		const error = adapter.adapt(
+			{
+				type: "session.error",
+				properties: { sessionID: "ses_child", error: { message: "fail" } },
+			},
+			ctx,
+		);
+		expect(error?.is_subtask).toBe(true);
+
+		const busy = adapter.adapt(
+			{
+				type: "session.status",
+				properties: { sessionID: "ses_child", status: { type: "busy" } },
+			},
+			ctx,
+		);
+		expect(busy?.is_subtask).toBe(true);
 	});
 });
