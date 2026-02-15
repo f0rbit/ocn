@@ -61,7 +61,11 @@ function to_notification_event(event: OcnEvent, config: OcnConfig): Notification
 				type: "prompting",
 				project: event.project,
 				directory: event.directory,
-				message: event.permission_title ? `Needs input: ${event.permission_title}` : "Needs input",
+				message: event.permission_title
+					? `Needs input: ${event.permission_title}`
+					: event.question_title
+						? `Question: ${event.question_title}`
+						: "Needs input",
 				timestamp: event.timestamp,
 			};
 		case "error":

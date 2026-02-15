@@ -9,6 +9,7 @@ export type OcnEvent = {
 	session_id?: string;
 	error_message?: string;
 	permission_title?: string;
+	question_title?: string;
 	is_subtask?: boolean;
 	timestamp: string;
 };

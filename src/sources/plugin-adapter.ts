@@ -66,6 +66,26 @@ function adapt_event(event: PluginEvent, ctx: PluginContext): OcnEvent | null {
 				session_id: str(p.sessionID),
 			};
 
+		case "question.asked": {
+			const questions = p.questions as Array<{ header?: string; question?: string }> | undefined;
+			const first_question = Array.isArray(questions) ? questions[0] : undefined;
+			const title = first_question?.header || first_question?.question || undefined;
+			return {
+				...base,
+				status: "prompting",
+				session_id: str(p.sessionID),
+				question_title: title,
+			};
+		}
+
+		case "question.replied":
+		case "question.rejected":
+			return {
+				...base,
+				status: "busy",
+				session_id: str(p.sessionID),
+			};
+
 		case "session.status": {
 			const status_type = str(obj(p.status)?.type);
 			if (status_type === "busy") {

@@ -127,6 +127,76 @@ describe("create_plugin_adapter", () => {
 		).toBeNull();
 	});
 
+	it("maps question.asked to prompting status with question title", () => {
+		const adapter = create_plugin_adapter();
+		const result = adapter.adapt(
+			{
+				type: "question.asked",
+				properties: {
+					id: "q_1",
+					sessionID: "ses_1",
+					questions: [{ header: "Select target", question: "Which deployment target?" }],
+				},
+			},
+			ctx,
+		);
+		expect(result).not.toBeNull();
+		expect(result?.status).toBe("prompting");
+		expect(result?.session_id).toBe("ses_1");
+		expect(result?.question_title).toBe("Select target");
+	});
+
+	it("maps question.asked with no questions array to prompting with no title", () => {
+		const adapter = create_plugin_adapter();
+		const result = adapter.adapt(
+			{
+				type: "question.asked",
+				properties: {
+					id: "q_2",
+					sessionID: "ses_1",
+					questions: [],
+				},
+			},
+			ctx,
+		);
+		expect(result).not.toBeNull();
+		expect(result?.status).toBe("prompting");
+		expect(result?.question_title).toBeUndefined();
+	});
+
+	it("maps question.replied to busy status", () => {
+		const adapter = create_plugin_adapter();
+		const result = adapter.adapt(
+			{
+				type: "question.replied",
+				properties: {
+					sessionID: "ses_1",
+					requestID: "q_1",
+					answers: [["option1"]],
+				},
+			},
+			ctx,
+		);
+		expect(result).not.toBeNull();
+		expect(result?.status).toBe("busy");
+	});
+
+	it("maps question.rejected to busy status", () => {
+		const adapter = create_plugin_adapter();
+		const result = adapter.adapt(
+			{
+				type: "question.rejected",
+				properties: {
+					sessionID: "ses_1",
+					requestID: "q_1",
+				},
+			},
+			ctx,
+		);
+		expect(result).not.toBeNull();
+		expect(result?.status).toBe("busy");
+	});
+
 	it("includes correct metadata in all events", () => {
 		const adapter = create_plugin_adapter();
 		const result = adapter.adapt({ type: "session.idle", properties: { sessionID: "ses_1" } }, ctx);
@@ -184,6 +254,32 @@ describe("session hierarchy tracking", () => {
 		const result = adapter.adapt({ type: "session.idle", properties: { sessionID: "ses_top" } }, ctx);
 		expect(result).not.toBeNull();
 		expect(result?.is_subtask).toBeUndefined();
+	});
+
+	it("question.asked for a registered child session has is_subtask true", () => {
+		const adapter = create_plugin_adapter();
+		adapter.adapt(
+			{
+				type: "session.created",
+				properties: { info: { id: "ses_child", parentID: "ses_parent" } },
+			},
+			ctx,
+		);
+
+		const result = adapter.adapt(
+			{
+				type: "question.asked",
+				properties: {
+					id: "q_1",
+					sessionID: "ses_child",
+					questions: [{ header: "Pick one", question: "Which option?" }],
+				},
+			},
+			ctx,
+		);
+		expect(result).not.toBeNull();
+		expect(result?.is_subtask).toBe(true);
+		expect(result?.status).toBe("prompting");
 	});
 
 	it("multiple event types for a registered child all get is_subtask true", () => {

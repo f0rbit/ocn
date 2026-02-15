@@ -164,6 +164,32 @@ describe("notifier hub config gating", () => {
 		expect(fake.calls).toHaveLength(0);
 	});
 
+	it("prompting notification uses question_title when permission_title is absent", async () => {
+		const fake = create_fake_notifier();
+		const hub = create_notifier_hub(make_hub_config(), undefined, [fake]);
+
+		await hub.notify(make_ocn_event({ status: "prompting", question_title: "Select target" }));
+
+		expect(fake.calls).toHaveLength(1);
+		expect(fake.calls[0].message).toBe("Question: Select target");
+	});
+
+	it("prompting notification prefers permission_title over question_title", async () => {
+		const fake = create_fake_notifier();
+		const hub = create_notifier_hub(make_hub_config(), undefined, [fake]);
+
+		await hub.notify(
+			make_ocn_event({
+				status: "prompting",
+				permission_title: "Run bash",
+				question_title: "Select target",
+			}),
+		);
+
+		expect(fake.calls).toHaveLength(1);
+		expect(fake.calls[0].message).toBe("Needs input: Run bash");
+	});
+
 	it("gated event does not affect debounce timer", async () => {
 		const fake = create_fake_notifier();
 		const config = make_hub_config({
