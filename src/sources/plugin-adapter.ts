@@ -48,15 +48,16 @@ function adapt_event(event: PluginEvent, ctx: PluginContext): OcnEvent | null {
 				...base,
 				status: "error",
 				session_id: str(p.sessionID),
-				error_message: str(obj(p.error)?.message),
+				error_message: str(obj(p.error)?.message) ?? str(obj(obj(p.error)?.data)?.message),
 			};
 
 		case "permission.updated":
+		case "permission.asked":
 			return {
 				...base,
 				status: "prompting",
 				session_id: str(p.sessionID),
-				permission_title: str(p.title),
+				permission_title: str(p.title) ?? str(p.permission),
 			};
 
 		case "permission.replied":

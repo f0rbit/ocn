@@ -197,6 +197,76 @@ describe("create_plugin_adapter", () => {
 		expect(result?.status).toBe("busy");
 	});
 
+	it("maps permission.asked to prompting status (v2 compat)", () => {
+		const adapter = create_plugin_adapter();
+		const result = adapter.adapt(
+			{
+				type: "permission.asked",
+				properties: {
+					id: "perm_1",
+					sessionID: "ses_1",
+					permission: "bash",
+					patterns: ["*"],
+				},
+			},
+			ctx,
+		);
+		expect(result).not.toBeNull();
+		expect(result?.status).toBe("prompting");
+		expect(result?.permission_title).toBe("bash");
+	});
+
+	it("permission.asked prefers title over permission field", () => {
+		const adapter = create_plugin_adapter();
+		const result = adapter.adapt(
+			{
+				type: "permission.asked",
+				properties: {
+					id: "perm_1",
+					sessionID: "ses_1",
+					title: "Run bash command?",
+					permission: "bash",
+				},
+			},
+			ctx,
+		);
+		expect(result).not.toBeNull();
+		expect(result?.permission_title).toBe("Run bash command?");
+	});
+
+	it("extracts error message from nested data.message path", () => {
+		const adapter = create_plugin_adapter();
+		const result = adapter.adapt(
+			{
+				type: "session.error",
+				properties: {
+					sessionID: "ses_1",
+					error: { name: "UnknownError", data: { message: "rate limited" } },
+				},
+			},
+			ctx,
+		);
+		expect(result).not.toBeNull();
+		expect(result?.status).toBe("error");
+		expect(result?.error_message).toBe("rate limited");
+	});
+
+	it("prefers top-level error.message over nested data.message", () => {
+		const adapter = create_plugin_adapter();
+		const result = adapter.adapt(
+			{
+				type: "session.error",
+				properties: {
+					sessionID: "ses_1",
+					error: { message: "top level", data: { message: "nested" } },
+				},
+			},
+			ctx,
+		);
+		expect(result).not.toBeNull();
+		expect(result?.error_message).toBe("top level");
+	});
+
 	it("includes correct metadata in all events", () => {
 		const adapter = create_plugin_adapter();
 		const result = adapter.adapt({ type: "session.idle", properties: { sessionID: "ses_1" } }, ctx);
