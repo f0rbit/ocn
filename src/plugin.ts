@@ -3,7 +3,7 @@ import { load_config } from "./config";
 import { create_notifier_hub } from "./notify";
 import type { ShellFn } from "./notify/macos";
 import { create_plugin_adapter } from "./sources/plugin-adapter";
-import { cleanup_stale, write_state } from "./state";
+import { cleanup_stale, remove_state, write_state } from "./state";
 import type { OcnStatus } from "./types";
 import { create_logger } from "./util/log";
 
@@ -16,13 +16,26 @@ export const OcnPlugin: Plugin = async ({ directory, $ }) => {
 	const project_name = directory.split("/").pop() ?? "unknown";
 
 	cleanup_stale(config.state_dir);
+
+	process.on("exit", () => {
+		remove_state(instance_id, config.state_dir);
+	});
+
 	log.info("initialized", { project: project_name, instance_id });
 
 	let current_status: OcnStatus = "idle";
 
 	return {
 		event: async ({ event }) => {
-			const ocn_event = adapter.adapt(event as { type: string; properties: Record<string, unknown> }, {
+			const typed = event as { type: string; properties: Record<string, unknown> };
+
+			if (typed.type === "server.instance.disposed") {
+				remove_state(instance_id, config.state_dir);
+				log.info("disposed, removed state file");
+				return;
+			}
+
+			const ocn_event = adapter.adapt(typed, {
 				directory,
 				project_name,
 				pid: process.pid,
