@@ -7,7 +7,7 @@ import { render_json_status, render_tmux_status } from "ocn/tmux-status";
 const config = load_config();
 const args = process.argv.slice(2);
 
-cleanup_stale(config.state_dir);
+cleanup_stale(config.state_dir, { idle_ttl_ms: config.idle_ttl_ms, stale_ttl_ms: config.stale_ttl_ms });
 
 const states = read_all_states(config.state_dir);
 

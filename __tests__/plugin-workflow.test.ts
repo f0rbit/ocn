@@ -15,6 +15,7 @@ const config: OcnConfig = {
 	},
 	debounce_ms: 0,
 	idle_ttl_ms: 1_800_000,
+	stale_ttl_ms: 86_400_000,
 	state_dir: "/unused",
 	theme: "plain",
 };
@@ -141,17 +142,17 @@ describe("V2 plugin workflow", () => {
 		expect(workflow.repo.list().find((state) => state.directory === "/repo/project/worktree")?.status).toBe("busy");
 	});
 
-	it("writes child state while the hub suppresses child notifications", async () => {
+	it("drops child state and notifications while keeping parent sessions", async () => {
 		const workflow = create_workflow();
+		await workflow.handler.handle(event("session.created", { sessionID: "parent" }));
 		await workflow.handler.handle(event("session.created", { sessionID: "child", parentID: "parent" }));
-		await workflow.handler.handle(event("session.execution.started", { sessionID: "child" }));
-
-		expect(workflow.repo.list()).toHaveLength(1);
-		expect(workflow.repo.list()[0].id).toBe(derive_state_key(directory, "child"));
-		expect(workflow.fake.calls).toHaveLength(0);
-		await workflow.handler.handle(event("session.deleted", { sessionID: "child" }));
+		await workflow.handler.handle(event("session.execution.started", { sessionID: "parent" }));
 		await workflow.handler.handle(event("session.execution.started", { sessionID: "child" }));
 		await workflow.handler.handle(event("session.idle", { sessionID: "child" }));
+		await workflow.handler.handle(event("session.idle", { sessionID: "parent" }));
+
+		expect(workflow.repo.list()).toHaveLength(1);
+		expect(workflow.repo.list()[0].id).toBe(derive_state_key(directory, "parent"));
 		expect(workflow.fake.calls.map((call) => call.type)).toEqual(["idle"]);
 	});
 

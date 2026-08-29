@@ -8,6 +8,7 @@ import type { InstanceState } from "./types";
 
 const DEFAULT_STATE_DIR = join(homedir(), ".local", "state", "ocn");
 const DEFAULT_IDLE_TTL_MS = 1_800_000;
+const DEFAULT_STALE_TTL_MS = 86_400_000;
 
 export function derive_state_key(directory: string, session_id: string): string {
 	return createHash("sha256").update(`${directory}\u0000${session_id}`).digest("hex").slice(0, 32);
@@ -76,26 +77,34 @@ export function remove_state_by_directory(directory: string, state_dir?: string)
 	create_file_state_repository(state_dir).remove_by_directory(directory);
 }
 
-export function is_expired(state: InstanceState, now_ms: number, idle_ttl_ms: number): boolean {
-	if (state.status !== "idle") return false;
-
+export function is_expired(
+	state: InstanceState,
+	now_ms: number,
+	ttls: { idle_ttl_ms: number; stale_ttl_ms: number },
+): boolean {
 	const updated_at = Date.parse(state.updated_at);
 	if (!Number.isFinite(updated_at)) return true;
-	return now_ms - updated_at > idle_ttl_ms;
+
+	const ttl = state.status === "idle" || state.status === "error" ? ttls.idle_ttl_ms : ttls.stale_ttl_ms;
+	return now_ms - updated_at > ttl;
 }
 
-export function cleanup_stale(state_dir?: string, opts: { now?: number; idle_ttl_ms?: number } = {}): void {
+export function cleanup_stale(
+	state_dir?: string,
+	opts: { now?: number; idle_ttl_ms?: number; stale_ttl_ms?: number } = {},
+): void {
 	const dir = state_dir ?? DEFAULT_STATE_DIR;
 	if (!existsSync(dir)) return;
 
 	const now = opts.now ?? Date.now();
 	const idle_ttl_ms = opts.idle_ttl_ms ?? DEFAULT_IDLE_TTL_MS;
+	const stale_ttl_ms = opts.stale_ttl_ms ?? DEFAULT_STALE_TTL_MS;
 
 	for (const file of readdirSync(dir).filter((entry) => entry.endsWith(".json"))) {
 		const file_path = join(dir, file);
 		const states = parse_state_file(file_path);
 		const state = states[0];
-		if (!state || !is_pid_alive(state.pid) || is_expired(state, now, idle_ttl_ms)) {
+		if (!state || !is_pid_alive(state.pid) || is_expired(state, now, { idle_ttl_ms, stale_ttl_ms })) {
 			remove_file(file_path);
 		}
 	}

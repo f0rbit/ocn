@@ -56,6 +56,8 @@ export function create_event_handler(deps: EventHandlerDependencies): EventHandl
 
 				const ocn_event = adapter.adapt(event, adapter_context);
 				if (!ocn_event || !ocn_event.session_id) return;
+				// Subagent sessions are not agents.
+				if (ocn_event.is_subtask === true) return;
 
 				const transition_time = now().toISOString();
 				const session_key = derive_state_key(ocn_event.directory, ocn_event.session_id);
@@ -110,7 +112,10 @@ export const ocn_plugin = Plugin.define({
 		const log = create_logger();
 		const hub = create_notifier_hub(config);
 		const repo = create_file_state_repository(config.state_dir);
-		cleanup_stale(config.state_dir, { idle_ttl_ms: config.idle_ttl_ms });
+		cleanup_stale(config.state_dir, {
+			idle_ttl_ms: config.idle_ttl_ms,
+			stale_ttl_ms: config.stale_ttl_ms,
+		});
 		const controller = new AbortController();
 		const handle = create_event_handler({
 			repo,
@@ -136,7 +141,7 @@ export const ocn_plugin = Plugin.define({
 		return async () => {
 			controller.abort();
 			await event_loop;
-			// Subpath-owned records are cleaned up by their owner or by the idle TTL.
+			// Subpath-owned records are cleaned up by their owner or by a TTL.
 			remove_state_by_directory(ctx.location.directory, config.state_dir);
 		};
 	},

@@ -12,7 +12,7 @@ Commands: `bun run gate` (full local verification, fail-fast), `bun run check` (
 
 ## State
 
-State identity is `~/.local/state/ocn/<sha256(canonicalDir\0sessionID)[0:32]>.json`, keyed by session. `pid` is the owning service PID and is only a liveness fallback. Idle records expire using `idle_ttl_ms` (30 minutes by default) and resurrect on the session's next event.
+State identity is `~/.local/state/ocn/<sha256(canonicalDir\0sessionID)[0:32]>.json`, keyed by session. `pid` is the owning service PID and is only a liveness fallback for orphaned records after a service restart. Subagent (child) sessions never create records or notifications; only top-level sessions count as agents. State expiry is per class: terminal statuses (`idle`/`error`) expire after `idle_ttl_ms` (30 minutes by default), while active statuses (`busy`/`prompting`) expire after `stale_ttl_ms` (24 hours by default). State files are a derived cache and safe to clear wholesale; they regenerate from live events, and sessions resurrect on their next event.
 
 `StateRepository` and `InMemoryStateRepository` are defined in `src/state-repository.ts`; the filesystem implementation is in `src/state.ts`. Contract tests cover both.
 

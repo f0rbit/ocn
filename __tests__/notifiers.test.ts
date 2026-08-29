@@ -76,6 +76,7 @@ const make_hub_config = (overrides?: Partial<OcnConfig>): OcnConfig => ({
 	},
 	debounce_ms: 0,
 	idle_ttl_ms: 1_800_000,
+	stale_ttl_ms: 86_400_000,
 	state_dir: "/tmp/ocn-test",
 	theme: "plain",
 	...overrides,

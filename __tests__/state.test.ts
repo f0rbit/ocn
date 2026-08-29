@@ -94,36 +94,72 @@ describe("state", () => {
 	describe("is_expired", () => {
 		const now = Date.parse("2026-08-29T12:00:00.000Z");
 		const old = "2026-08-29T11:00:00.000Z";
+		const idle_ttl_ms = 1_000;
+		const stale_ttl_ms = 2_000;
+		const ttls = { idle_ttl_ms, stale_ttl_ms };
 
-		it("expires old idle records and not other statuses", () => {
-			expect(is_expired(make_state({ updated_at: old }), now, 1_000)).toBe(true);
-			expect(is_expired(make_state({ status: "busy", updated_at: old }), now, 1_000)).toBe(false);
-			expect(is_expired(make_state({ status: "prompting", updated_at: old }), now, 1_000)).toBe(false);
-			expect(is_expired(make_state({ status: "error", updated_at: old }), now, 1_000)).toBe(false);
+		it("expires terminal records using the idle TTL", () => {
+			expect(is_expired(make_state({ updated_at: old }), now, ttls)).toBe(true);
+			expect(is_expired(make_state({ status: "error", updated_at: old }), now, ttls)).toBe(true);
+			expect(is_expired(make_state({ updated_at: "2026-08-29T11:59:59.999Z" }), now, ttls)).toBe(false);
+			expect(is_expired(make_state({ status: "error", updated_at: "2026-08-29T11:59:59.999Z" }), now, ttls)).toBe(
+				false,
+			);
 		});
 
-		it("keeps fresh idle records and expires invalid timestamps", () => {
-			expect(is_expired(make_state({ updated_at: "2026-08-29T11:59:59.999Z" }), now, 1_000)).toBe(false);
-			expect(is_expired(make_state({ updated_at: "garbage" }), now, 1_000)).toBe(true);
+		it("expires active records only past the stale TTL", () => {
+			expect(is_expired(make_state({ status: "busy", updated_at: old }), now, ttls)).toBe(true);
+			expect(is_expired(make_state({ status: "prompting", updated_at: old }), now, ttls)).toBe(true);
+			expect(is_expired(make_state({ status: "busy", updated_at: "2026-08-29T11:59:58.001Z" }), now, ttls)).toBe(false);
+			expect(is_expired(make_state({ status: "prompting", updated_at: "2026-08-29T11:59:58.001Z" }), now, ttls)).toBe(
+				false,
+			);
+		});
+
+		it("expires unparseable timestamps", () => {
+			expect(is_expired(make_state({ updated_at: "garbage" }), now, ttls)).toBe(true);
 		});
 	});
 
 	describe("cleanup_stale", () => {
-		it("removes expired, dead, and malformed files while keeping live records", () => {
+		it("removes old terminal and active records while keeping fresh active records", () => {
 			const now = Date.parse("2026-08-29T12:00:00.000Z");
-			write_state(make_state({ session_id: "expired", updated_at: "2026-08-29T11:00:00.000Z" }), tmp_dir);
-			write_state(make_state({ session_id: "dead", pid: 999999, updated_at: "2026-08-29T11:00:00.000Z" }), tmp_dir);
-			write_state(make_state({ session_id: "fresh", updated_at: "2026-08-29T11:59:59.999Z" }), tmp_dir);
-			write_state(make_state({ session_id: "busy", status: "busy", updated_at: "2020-01-01T00:00:00.000Z" }), tmp_dir);
+			write_state(
+				make_state({ session_id: "old-error", status: "error", updated_at: "2026-08-29T11:00:00.000Z" }),
+				tmp_dir,
+			);
+			write_state(
+				make_state({ session_id: "old-busy", status: "busy", updated_at: "2026-08-29T11:00:00.000Z" }),
+				tmp_dir,
+			);
+			write_state(
+				make_state({ session_id: "fresh-busy", status: "busy", updated_at: "2026-08-29T11:59:59.999Z" }),
+				tmp_dir,
+			);
 			writeFileSync(join(tmp_dir, "bad.json"), "not json");
 
-			cleanup_stale(tmp_dir, { now, idle_ttl_ms: 1_000 });
+			cleanup_stale(tmp_dir, { now, idle_ttl_ms: 1_000, stale_ttl_ms: 2_000 });
 
 			expect(
 				read_all_states(tmp_dir)
 					.map((state) => state.session_id)
 					.sort(),
-			).toEqual(["busy", "fresh"]);
+			).toEqual(["fresh-busy"]);
+		});
+
+		it("removes a fresh record owned by a dead service PID", () => {
+			const now = Date.parse("2026-08-29T12:00:00.000Z");
+			write_state(
+				make_state({
+					pid: 999999,
+					updated_at: "2026-08-29T11:59:59.999Z",
+				}),
+				tmp_dir,
+			);
+
+			cleanup_stale(tmp_dir, { now, idle_ttl_ms: 60_000, stale_ttl_ms: 60_000 });
+
+			expect(read_all_states(tmp_dir)).toEqual([]);
 		});
 
 		it("handles a non-existent directory gracefully", () => {
@@ -136,6 +172,7 @@ describe("state", () => {
 			cleanup_stale(tmp_dir, {
 				now: Date.parse("2026-08-29T12:00:00.000Z"),
 				idle_ttl_ms: 1_000,
+				stale_ttl_ms: 2_000,
 			});
 			expect(read_all_states(tmp_dir)).toEqual([]);
 
