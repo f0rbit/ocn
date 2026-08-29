@@ -26,6 +26,7 @@
 		"typecheck": "bunx --bidi tsc --noEmit",
 		"lint": "bunx --bidi biome check .",
 		"lint:fix": "bunx --bidi biome check --write .",
+		"doctor": "bun src/doctor.ts",
 		"check": "bun run lint && bun src/doctor.ts",
 		"smoke": "bun src/smoke.ts",
 		"gate": "bun run typecheck && bun test && bun run lint && bun run smoke"
