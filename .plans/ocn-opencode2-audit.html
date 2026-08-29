@@ -354,12 +354,12 @@ bun test</pre><p>Expected: the full existing suite plus new contract tests pass,
         </section>
 
         <section class="phase" id="phase-2">
-          <header><h3>Phase 2: Port event ingestion and notification lifecycle to V2</h3><span class="badge todo">todo</span></header>
+          <header><h3>Phase 2: Port event ingestion and notification lifecycle to V2</h3><span class="badge done">done</span></header>
           <p>Wire the V2 event stream into the domain adapter and session repository. Keep event normalization independent of notification side effects so the multi-session behavior is testable with in-memory sources.</p>
           <dl class="meta"><dt>Devpad task</dt><dd>Created after approval; link back to <code>.plans/ocn-opencode2-audit.html#phase-2</code>.</dd><dt>Mode</dt><dd>sequential — adapter, plugin lifecycle, and notifier transition semantics share the new session contract.</dd></dl>
 
           <article class="task" id="task-2-1">
-            <header><h3>Task 2.1: Normalize the V2 event stream</h3><span class="badge todo">todo</span></header>
+            <header><h3>Task 2.1: Normalize the V2 event stream</h3><span class="badge done">done</span></header>
             <dl class="meta"><dt>Files</dt><dd><code>src/sources/plugin-adapter.ts</code>, new <code>src/sources/v2-event-source.ts</code>, <code>src/types.ts</code>, <code>__tests__/plugin-adapter.test.ts</code>, new V2 fixture tests</dd><dt>Dependencies</dt><dd>Phase 1</dd></dl>
             <section data-kind="scope"><h4>Scope</h4><p>Map only the verified V2 session, status, error, permission, question, and deletion events into the domain union. Preserve child-session filtering, but key it by session ID and location. Decode external event payloads with the pinned SDK/Zod boundary and ignore unknown/future events with structured diagnostics.</p></section>
             <section data-kind="acceptance"><h4>Acceptance</h4><pre>bun test __tests__/plugin-adapter.test.ts __tests__/v2-event-source.test.ts
@@ -367,7 +367,7 @@ bun run typecheck</pre><p>Expected: fixtures cover idle, busy, retry, error, per
           </article>
 
           <article class="task" id="task-2-2">
-            <header><h3>Task 2.2: Implement the V2 plugin lifecycle and transition notifications</h3><span class="badge todo">todo</span></header>
+            <header><h3>Task 2.2: Implement the V2 plugin lifecycle and transition notifications</h3><span class="badge done">done</span></header>
             <dl class="meta"><dt>Files</dt><dd><code>src/plugin.ts</code>, <code>src/notify/index.ts</code>, <code>src/notify/types.ts</code>, <code>__tests__/notifiers.test.ts</code>, new plugin workflow tests</dd><dt>Dependencies</dt><dd>Task 2.1</dd></dl>
             <section data-kind="scope"><h4>Scope</h4><p>Replace the V1 returned-hooks entrypoint with V2 <code>setup</code>, subscribe through the verified context, write one state per session, and abort/unsubscribe plus remove owned records on plugin cleanup. Preserve notification gating, debounce, child-session suppression, and tmux-pane best-effort behavior while making current status session-scoped.</p></section>
             <section data-kind="acceptance"><h4>Acceptance</h4><pre>bun test __tests__/notifiers.test.ts __tests__/plugin-workflow.test.ts
@@ -377,7 +377,7 @@ bun run typecheck</pre><p>Expected: an in-memory event sequence updates two sess
           <section data-kind="verification"><h4>Phase verification</h4><pre>bun run typecheck
 bun test</pre><p>Expected: all tests pass and the reviewer can demonstrate a shared service PID with multiple session records without cross-session status or notification leakage.</p></section>
           <section data-kind="adversary"><h4>Adversary checklist (whole phase)</h4><div class="adversary"><ul><li>Stream cleanup uses an abort/unsubscribe path and does not leave a background async iterator running.</li><li>Permission/question replies restore only their session; one session's idle/error cannot overwrite another.</li><li>Session deletion removes state even when the service PID remains alive.</li><li>Unknown events and malformed payloads do not fabricate idle records or crash setup.</li><li>Notifications remain transition-based and child-session filtered; busy events do not notify.</li></ul></div></section>
-          <section data-kind="proof"><h4>Proof</h4><div class="empty-proof">To be filled by the reviewer at unit close: commit SHA(s), V2 fixture/workflow output, and gate output excerpt.</div></section>
+          <section data-kind="proof"><h4>Proof</h4><div class="proof"><p>Commit: <code>0320e39</code> (<code>feat: port event ingestion to OpenCode2</code>). V2 schema, adapter, and in-memory workflow tests cover event normalization, location/session isolation, deletion, malformed payloads, child-session suppression, and transition notifications.</p><pre>bun run typecheck — pass; bun test — 89 pass, 0 fail; bunx --bidi biome check . — Checked 28 files. No fixes applied.</pre></div></section>
         </section>
 
         <section class="phase" id="phase-3">
