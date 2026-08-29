@@ -324,7 +324,7 @@
         <p>Executed strictly sequentially. Coders write diffs only; the reviewer runs the full verification for the phase, fixes forward, and commits. OCN's package changes become one thematic PR at feature end. The dotfiles repository has no CI/PR flow per its <code>AGENTS.md</code>, so its consumer wiring is verified and committed directly according to that repository's convention at the same feature end.</p>
 
         <section class="phase" id="phase-1">
-          <header><h3>Phase 1: Lock the OpenCode2 contract and session-state foundation</h3><span class="badge todo">todo</span></header>
+          <header><h3>Phase 1: Lock the OpenCode2 contract and session-state foundation</h3><span class="badge done">done</span></header>
           <p>First prove the exact beta API instead of relying on the documentation/source mismatch, then establish one typed domain and repository contract before changing the plugin. If the installed beta cannot compile a V2 event subscription, stop this plan at the compatibility gate and switch to the standalone watcher decision.</p>
           <dl class="meta">
             <dt>Devpad task</dt><dd>Created after approval; link back to <code>.plans/ocn-opencode2-audit.html#phase-1</code>.</dd>
@@ -332,7 +332,7 @@
           </dl>
 
           <article class="task" id="task-1-1">
-            <header><h3>Task 1.1: Verify and pin the OpenCode2 plugin contract</h3><span class="badge todo">todo</span></header>
+            <header><h3>Task 1.1: Verify and pin the OpenCode2 plugin contract</h3><span class="badge done">done</span></header>
             <dl class="meta"><dt>Files</dt><dd><code>package.json</code>, <code>bun.lock</code>, <code>tsconfig.json</code>, new V2 contract fixture/test</dd><dt>Dependencies</dt><dd>none</dd></dl>
             <section data-kind="scope"><h4>Scope</h4><p>Install the exact <code>@opencode-ai/plugin</code> beta compatible with <code>opencode2 v0.0.0-beta-18684</code>, compile a minimal <code>define({ id, setup })</code> module, and prove the documented event subscription/client surface exists. Expose the package entrypoint in the shape OpenCode2 loads and remove the misleading V1-only dependency range. Record the selected version and the probe result in the OCN root <code>AGENTS.md</code>.</p></section>
             <section data-kind="acceptance"><h4>Acceptance</h4><pre>bun run typecheck
@@ -340,7 +340,7 @@ bun test __tests__/plugin-contract.test.ts</pre><p>Expected: the real pinned pac
           </article>
 
           <article class="task" id="task-1-2">
-            <header><h3>Task 1.2: Define session-keyed state and in-memory repository contracts</h3><span class="badge todo">todo</span></header>
+            <header><h3>Task 1.2: Define session-keyed state and in-memory repository contracts</h3><span class="badge done">done</span></header>
             <dl class="meta"><dt>Files</dt><dd><code>src/types.ts</code>, <code>src/state.ts</code>, new <code>src/repositories/*</code>, <code>__tests__/state.test.ts</code>, new repository contract tests</dd><dt>Dependencies</dt><dd>Task 1.1</dd></dl>
             <section data-kind="scope"><h4>Scope</h4><p>Replace PID-only identity with a stable location/session key and add a Zod-backed <code>InstanceState</code> schema. Keep a filesystem implementation for tmux/SketchyBar and add an inspectable in-memory implementation. Define cleanup for terminal session deletion, owner teardown, malformed files, and TTL-expired idle records (decided): expiry skips/removes a record and any later event for the session recreates it (resurrection); preserve the existing aggregate counts and status literals.</p></section>
             <section data-kind="acceptance"><h4>Acceptance</h4><pre>bun test __tests__/state.test.ts __tests__/state-repository.test.ts
@@ -350,7 +350,7 @@ bun run typecheck</pre><p>Expected: two sessions sharing one service PID and two
           <section data-kind="verification"><h4>Phase verification</h4><pre>bun run typecheck
 bun test</pre><p>Expected: the full existing suite plus new contract tests pass, and a reviewer confirms the V2 compatibility probe is against the exact pinned package rather than a workspace-only assumption.</p></section>
           <section data-kind="adversary"><h4>Adversary checklist (whole phase)</h4><div class="adversary"><ul><li>No <code>any</code>, broad casts, or duplicate V1/V2 domain schemas are introduced.</li><li>Session ID is not optional for a V2 session record; location identity cannot be inferred from PID alone.</li><li>Malformed, empty, duplicate, and stale state cases have deterministic behavior.</li><li>The in-memory repository implements the same exported interface as the filesystem repository at compile time.</li><li>If the package contract probe fails, no private/bundled API is guessed; the phase is blocked and Option 2 is revisited.</li></ul></div></section>
-          <section data-kind="proof"><h4>Proof</h4><div class="empty-proof">To be filled by the reviewer at unit close: commit SHA(s), pinned package version, compatibility probe output, and gate output excerpt.</div></section>
+          <section data-kind="proof"><h4>Proof</h4><div class="proof"><p>Commits: <code>336f929</code> (plan), <code>fca00bf</code> (implementation). Package pair: <code>opencode2 0.0.0-beta-18684</code> + <code>@opencode-ai/plugin 0.0.0-beta-18684</code>. Compatibility probe: <code>Plugin.define</code>, <code>Context.event.subscribe()</code> as <code>AsyncIterable</code>, and <code>Context.location.directory</code> pass against the installed beta.</p><pre>bun run typecheck — pass; bun test — 90 pass, 0 fail; bunx --bidi biome check . — Checked 25 files in 21ms. No fixes applied.</pre></div></section>
         </section>
 
         <section class="phase" id="phase-2">
