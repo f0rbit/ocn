@@ -1,76 +1,145 @@
+import { Plugin } from "@opencode-ai/plugin";
 import { load_config } from "./config";
+import type { OcnConfig } from "./config";
 import { create_notifier_hub } from "./notify";
-import type { ShellFn } from "./notify/macos";
-import { create_plugin_adapter } from "./sources/plugin-adapter";
-import type { PluginEvent } from "./sources/plugin-adapter";
-import { cleanup_stale, derive_state_key, remove_state_by_directory, write_state } from "./state";
-import type { OcnStatus } from "./types";
+import { create_v2_adapter } from "./sources/plugin-adapter";
+import { parse_v2_event, v2_event_directory } from "./sources/v2-event";
+import { cleanup_stale, create_file_state_repository, derive_state_key, remove_state_by_directory } from "./state";
+import type { StateRepository } from "./state-repository";
+import type { InstanceState, OcnEvent, OcnStatus } from "./types";
 import { create_logger } from "./util/log";
 
-type LegacyPluginInput = {
+export type EventHandlerDependencies = {
+	repo: StateRepository;
+	notify: (event: OcnEvent) => Promise<void>;
+	config: OcnConfig;
 	directory: string;
-	$: ShellFn;
+	canonical: string;
+	pid: number;
+	now?: () => Date;
 };
 
-export const OcnPlugin = async ({ directory, $ }: LegacyPluginInput) => {
-	const config = load_config();
+export type EventHandler = {
+	handle: (raw: unknown) => Promise<void>;
+};
+
+type Transition = {
+	status: OcnStatus;
+	last_transition: string;
+};
+
+export function create_event_handler(deps: EventHandlerDependencies): EventHandler {
+	const adapter = create_v2_adapter();
+	const transitions = new Map<string, Transition>();
 	const log = create_logger();
-	const hub = create_notifier_hub(config, $);
-	const adapter = create_plugin_adapter();
-	const project_name = directory.split("/").pop() ?? "unknown";
-
-	cleanup_stale(config.state_dir, { idle_ttl_ms: config.idle_ttl_ms });
-
-	process.on("exit", () => {
-		remove_state_by_directory(directory, config.state_dir);
-	});
-
-	log.info("initialized", { project: project_name, pid: process.pid });
-
-	let current_status: OcnStatus = "idle";
+	const now = deps.now ?? (() => new Date());
 
 	return {
-		event: async ({ event }: { event: PluginEvent }) => {
-			const typed = event;
+		async handle(raw) {
+			try {
+				const event = parse_v2_event(raw);
+				if (!event || !is_location_allowed(v2_event_directory(event, deps.directory), deps.directory, deps.canonical))
+					return;
 
-			if (typed.type === "server.instance.disposed") {
-				remove_state_by_directory(directory, config.state_dir);
-				log.info("disposed, removed state file");
-				return;
-			}
+				const record_directory = v2_event_directory(event, deps.directory);
+				const adapter_context = {
+					fallback_directory: deps.directory,
+					pid: deps.pid,
+				};
+				if (event.type === "session.deleted") {
+					adapter.adapt(event, adapter_context);
+					const session_key = derive_state_key(record_directory, event.data.sessionID);
+					deps.repo.remove(session_key);
+					transitions.delete(session_key);
+					return;
+				}
 
-			const ocn_event = adapter.adapt(typed, {
-				directory,
-				project_name,
-				pid: process.pid,
-			});
-			if (!ocn_event) return;
-			const session_id = ocn_event.session_id;
-			if (!session_id) return;
+				const ocn_event = adapter.adapt(event, adapter_context);
+				if (!ocn_event || !ocn_event.session_id) return;
 
-			const previous = current_status;
-			current_status = ocn_event.status;
+				const transition_time = now().toISOString();
+				const session_key = derive_state_key(ocn_event.directory, ocn_event.session_id);
+				const previous = transitions.get(session_key) ?? {
+					status: "idle",
+					last_transition: transition_time,
+				};
+				const state: InstanceState = {
+					id: derive_state_key(ocn_event.directory, ocn_event.session_id),
+					pid: ocn_event.pid,
+					directory: ocn_event.directory,
+					project: ocn_event.project,
+					status: ocn_event.status,
+					last_transition: previous.status === ocn_event.status ? previous.last_transition : transition_time,
+					updated_at: transition_time,
+					session_id: ocn_event.session_id,
+				};
+				if (ocn_event.error_message !== undefined) state.error_message = ocn_event.error_message;
+				if (ocn_event.permission_title !== undefined) state.permission_title = ocn_event.permission_title;
+				if (ocn_event.question_title !== undefined) state.question_title = ocn_event.question_title;
 
-			write_state(
-				{
-					id: derive_state_key(directory, session_id),
-					pid: process.pid,
-					directory,
-					project: project_name,
-					status: current_status,
-					last_transition: new Date().toISOString(),
-					updated_at: new Date().toISOString(),
-					session_id,
-				},
-				config.state_dir,
-			);
+				deps.repo.save(state);
+				transitions.set(session_key, {
+					status: ocn_event.status,
+					last_transition: state.last_transition,
+				});
 
-			if (previous !== current_status) {
-				log.debug("transition", { from: previous, to: current_status });
-				await hub.notify(ocn_event);
+				if (previous.status === ocn_event.status) return;
+				try {
+					await deps.notify(ocn_event);
+				} catch {
+					log.error("notification failed", { session_id: ocn_event.session_id });
+				}
+			} catch {
+				log.error("event handling failed");
 			}
 		},
 	};
-};
+}
 
-export default OcnPlugin;
+function is_location_allowed(directory: string | undefined, configured: string, canonical: string): boolean {
+	if (!directory) return true;
+	return directory === configured || directory === canonical || directory.startsWith(`${canonical}/`);
+}
+
+type SetupContext = Parameters<Plugin.Plugin["setup"]>[0];
+
+export const ocn_plugin = Plugin.define({
+	id: "ocn",
+	setup(ctx: SetupContext) {
+		const config = load_config();
+		const log = create_logger();
+		const hub = create_notifier_hub(config);
+		const repo = create_file_state_repository(config.state_dir);
+		cleanup_stale(config.state_dir, { idle_ttl_ms: config.idle_ttl_ms });
+		const controller = new AbortController();
+		const handle = create_event_handler({
+			repo,
+			notify: hub.notify,
+			config,
+			directory: ctx.location.directory,
+			canonical: ctx.location.project.canonical,
+			pid: process.pid,
+		});
+
+		const event_loop = (async () => {
+			try {
+				for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
+					if (controller.signal.aborted) return;
+					await handle.handle(event);
+				}
+			} catch {
+				if (!controller.signal.aborted) log.error("event stream failed");
+			}
+		})();
+
+		log.info("initialized", { project: ctx.location.project.directory, pid: process.pid });
+		return async () => {
+			controller.abort();
+			await event_loop;
+			// Subpath-owned records are cleaned up by their owner or by the idle TTL.
+			remove_state_by_directory(ctx.location.directory, config.state_dir);
+		};
+	},
+});
+
+export default ocn_plugin;

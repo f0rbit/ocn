@@ -8,7 +8,7 @@ Commands: `bun test`, `bun run typecheck`, and `bunx --bidi biome check .` (read
 
 `opencode2 0.0.0-beta-18684` and `@opencode-ai/plugin 0.0.0-beta-18684` must be upgraded as a pair. The entrypoint is the root `Plugin.define({ id, setup })` export from `@opencode-ai/plugin`; the documented `@opencode-ai/plugin/v2/promise` subpath does not exist in this beta. `setup` may return a Cleanup function.
 
-For Phase 2, `ctx.event.subscribe()` yields the whole server stream as `AsyncIterable<V2Event>` with a `type` discriminant, `data` payload, and optional `location`. V2 replaces `question.*` with `form.*`.
+`ctx.event.subscribe()` yields the whole server stream as `AsyncIterable<V2Event>` with a `type` discriminant, `data` payload, and optional `location`. OCN accepts events with undefined location, the configured directory, the project canonical directory, or a canonical-directory prefix. The entrypoint is the root `Plugin.define` default export. State transitions are tracked per session; deletion removes that session's record, and setup cleanup removes records owned by its directory.
 
 ## State
 
