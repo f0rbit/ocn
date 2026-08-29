@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 
-import { cleanup_stale, read_all_states } from "../src/state";
-import { render_json_status, render_tmux_status } from "../src/tmux-status";
-import { load_config } from "../src/config";
+import { load_config } from "ocn/config";
+import { cleanup_stale, read_all_states } from "ocn/state";
+import { render_json_status, render_tmux_status } from "ocn/tmux-status";
 
 const config = load_config();
 const args = process.argv.slice(2);

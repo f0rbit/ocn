@@ -80,6 +80,7 @@ describe("render_json_status", () => {
 	it("returns valid JSON with counts", () => {
 		const states = [make_state("idle"), make_state("busy")];
 		const result = JSON.parse(render_json_status(states));
+		expect(result.version).toBe("0.1.0");
 		expect(result.total).toBe(2);
 		expect(result.idle).toBe(1);
 		expect(result.busy).toBe(1);

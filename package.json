@@ -5,7 +5,10 @@
 	"type": "module",
 	"main": "src/plugin.ts",
 	"exports": {
-		".": "./src/plugin.ts"
+		".": "./src/plugin.ts",
+		"./config": "./src/config.ts",
+		"./state": "./src/state.ts",
+		"./tmux-status": "./src/tmux-status.ts"
 	},
 	"bin": {
 		"ocn-tmux-status": "scripts/ocn-tmux-status",
@@ -20,8 +23,12 @@
 	},
 	"scripts": {
 		"test": "bun test",
-		"check": "bunx --bidi biome check --write .",
-		"typecheck": "bunx --bidi tsc --noEmit"
+		"typecheck": "bunx --bidi tsc --noEmit",
+		"lint": "bunx --bidi biome check .",
+		"lint:fix": "bunx --bidi biome check --write .",
+		"check": "bun run lint && bun src/doctor.ts",
+		"smoke": "bun src/smoke.ts",
+		"gate": "bun run typecheck && bun test && bun run lint && bun run smoke"
 	},
 	"dependencies": {
 		"zod": "^3.24.0"

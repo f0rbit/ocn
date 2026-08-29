@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
-import { cleanup_stale, read_all_states } from "../src/state";
-import { load_config } from "../src/config";
+import { load_config } from "ocn/config";
+import { cleanup_stale, read_all_states } from "ocn/state";
 
 const config = load_config();
 

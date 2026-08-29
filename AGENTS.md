@@ -2,7 +2,7 @@
 
 OCN provides terminal-native notifications and status for OpenCode sessions.
 
-Commands: `bun test`, `bun run typecheck`, and `bunx --bidi biome check .` (read-only; the `check` npm script uses `--write`, so do not use it for verification).
+Commands: `bun run gate` (full local verification, fail-fast), `bun run check` (read-only contract suite), `bun run smoke`, `bun run lint`, `bun run lint:fix`, `bun test`, and `bun run typecheck`. `deploy` and `ship` are N/A for this local package; PRs ship through the repository's normal flow.
 
 ## OpenCode2 contract
 

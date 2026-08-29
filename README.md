@@ -20,16 +20,17 @@ Terminal-native session notifications for [OpenCode](https://opencode.ai). Track
 
 ## tmux Setup
 
-Copy the status script and add it to your tmux config:
+Link the status scripts and add the tmux command to your config:
 
 ```bash
-# Copy the script
-cp node_modules/ocn/scripts/ocn-tmux-status ~/.local/bin/
-chmod +x ~/.local/bin/ocn-tmux-status
+# Run from the ocn package directory
+mkdir -p ~/.local/bin && ln -sf "$(pwd)/scripts/ocn-tmux-status" ~/.local/bin/ocn-tmux-status && ln -sf "$(pwd)/scripts/ocn-status" ~/.local/bin/ocn-status
 
 # Add to tmux.conf (before existing status-right content)
 set -g status-right "#(~/.local/bin/ocn-tmux-status)#{?@nvim_status,#{@nvim_status},} %Y-%m-%d %H:%M"
 ```
+
+Copies break module resolution by design; keep these installs as symlinks.
 
 ### Status indicators
 

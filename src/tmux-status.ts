@@ -1,4 +1,5 @@
-import type { InstanceState, OcnStatus } from "./types";
+import package_json from "../package.json";
+import type { InstanceState } from "./types";
 
 type StatusCounts = {
 	idle: number;
@@ -81,6 +82,7 @@ export function render_tmux_status(states: InstanceState[], theme_name = "tokyon
 export function render_json_status(states: InstanceState[]): string {
 	const counts = count_statuses(states);
 	return JSON.stringify({
+		version: package_json.version,
 		total: states.length,
 		...counts,
 		instances: states.map((s) => ({
