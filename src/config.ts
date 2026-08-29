@@ -27,6 +27,7 @@ const NotifySchema = z.object({
 export const ConfigSchema = z.object({
 	notify: NotifySchema.default({}),
 	debounce_ms: z.number().default(2000),
+	idle_ttl_ms: z.number().int().positive().default(1_800_000),
 	state_dir: z.string().default(join(homedir(), ".local", "state", "ocn")),
 	theme: z.enum(["tokyonight", "catppuccin", "plain"]).default("tokyonight"),
 });

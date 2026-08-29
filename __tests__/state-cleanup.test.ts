@@ -16,13 +16,15 @@ afterEach(() => {
 describe("remove_state", () => {
 	it("removes an existing state file", () => {
 		write_state(
-			"1234",
 			{
+				id: "1234",
 				pid: 1234,
 				directory: "/test",
 				project: "test",
 				status: "busy",
+				session_id: "session-1234",
 				last_transition: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
 			},
 			TEST_STATE_DIR,
 		);
@@ -40,25 +42,29 @@ describe("remove_state", () => {
 
 	it("only removes the targeted instance, leaving others intact", () => {
 		write_state(
-			"1111",
 			{
+				id: "1111",
 				pid: 1111,
 				directory: "/a",
 				project: "a",
 				status: "busy",
+				session_id: "session-1111",
 				last_transition: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
 			},
 			TEST_STATE_DIR,
 		);
 
 		write_state(
-			"2222",
 			{
+				id: "2222",
 				pid: 2222,
 				directory: "/b",
 				project: "b",
 				status: "idle",
+				session_id: "session-2222",
 				last_transition: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
 			},
 			TEST_STATE_DIR,
 		);

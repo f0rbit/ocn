@@ -8,6 +8,7 @@ describe("ConfigSchema defaults", () => {
 		const config = ConfigSchema.parse({});
 
 		expect(config.debounce_ms).toBe(2000);
+		expect(config.idle_ttl_ms).toBe(1_800_000);
 		expect(config.theme).toBe("tokyonight");
 		expect(config.state_dir).toBe(join(homedir(), ".local", "state", "ocn"));
 

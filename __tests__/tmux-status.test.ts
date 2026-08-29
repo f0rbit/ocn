@@ -3,11 +3,14 @@ import { count_statuses, render_json_status, render_tmux_status } from "../src/t
 import type { InstanceState } from "../src/types";
 
 const make_state = (status: InstanceState["status"], project = "test"): InstanceState => ({
+	id: `${project}-${status}`,
 	pid: 1234,
 	directory: `/Users/tom/dev/${project}`,
 	project,
 	status,
+	session_id: `${project}-session`,
 	last_transition: new Date().toISOString(),
+	updated_at: new Date().toISOString(),
 });
 
 describe("count_statuses", () => {

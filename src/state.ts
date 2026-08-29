@@ -1,66 +1,103 @@
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { StateRepository } from "./state-repository";
+import { InstanceStateSchema } from "./types";
 import type { InstanceState } from "./types";
 
 const DEFAULT_STATE_DIR = join(homedir(), ".local", "state", "ocn");
+const DEFAULT_IDLE_TTL_MS = 1_800_000;
 
-export function write_state(instance_id: string, state: InstanceState, state_dir?: string): void {
-	const dir = state_dir ?? DEFAULT_STATE_DIR;
-	mkdirSync(dir, { recursive: true });
-	const file_path = join(dir, `${instance_id}.json`);
-	writeFileSync(file_path, JSON.stringify(state, null, 2));
+export function derive_state_key(directory: string, session_id: string): string {
+	return createHash("sha256").update(`${directory}\u0000${session_id}`).digest("hex").slice(0, 32);
 }
 
-export function read_all_states(state_dir?: string): InstanceState[] {
+export function create_file_state_repository(state_dir?: string): StateRepository {
 	const dir = state_dir ?? DEFAULT_STATE_DIR;
-	if (!existsSync(dir)) return [];
 
-	const files = readdirSync(dir).filter((f) => f.endsWith(".json"));
-	const states: InstanceState[] = [];
+	return {
+		save(state: InstanceState): void {
+			mkdirSync(dir, { recursive: true });
+			writeFileSync(join(dir, `${state.id}.json`), JSON.stringify(state, null, 2));
+		},
 
-	for (const file of files) {
-		try {
-			const raw = readFileSync(join(dir, file), "utf-8");
-			const parsed = JSON.parse(raw);
-			states.push(parsed as InstanceState);
-		} catch {
-			// Skip malformed files
-		}
-	}
-	return states;
-}
+		list(): InstanceState[] {
+			if (!existsSync(dir)) return [];
 
-export function cleanup_stale(state_dir?: string): void {
-	const dir = state_dir ?? DEFAULT_STATE_DIR;
-	if (!existsSync(dir)) return;
+			return readdirSync(dir)
+				.filter((file) => file.endsWith(".json"))
+				.flatMap((file) => parse_state_file(join(dir, file)));
+		},
 
-	const files = readdirSync(dir).filter((f) => f.endsWith(".json"));
+		remove(id: string): void {
+			remove_file(join(dir, `${id}.json`));
+		},
 
-	for (const file of files) {
-		const file_path = join(dir, file);
-		try {
-			const raw = readFileSync(file_path, "utf-8");
-			const state = JSON.parse(raw) as InstanceState;
-			if (!is_pid_alive(state.pid)) {
-				unlinkSync(file_path);
+		remove_by_directory(directory: string): void {
+			for (const state of this.list()) {
+				if (state.directory === directory) remove_file(join(dir, `${state.id}.json`));
 			}
-		} catch {
-			// Remove unparseable files
-			try {
-				unlinkSync(file_path);
-			} catch {}
-		}
+		},
+	};
+}
+
+function parse_state_file(file_path: string): InstanceState[] {
+	try {
+		const raw = readFileSync(file_path, "utf-8");
+		const parsed = InstanceStateSchema.safeParse(JSON.parse(raw));
+		return parsed.success ? [parsed.data] : [];
+	} catch {
+		return [];
 	}
 }
 
-export function remove_state(instance_id: string, state_dir?: string): void {
-	const dir = state_dir ?? DEFAULT_STATE_DIR;
-	const file_path = join(dir, `${instance_id}.json`);
+function remove_file(file_path: string): void {
 	try {
 		unlinkSync(file_path);
 	} catch {
-		// File may already be removed
+		return;
+	}
+}
+
+export function write_state(state: InstanceState, state_dir?: string): void {
+	create_file_state_repository(state_dir).save(state);
+}
+
+export function read_all_states(state_dir?: string): InstanceState[] {
+	return create_file_state_repository(state_dir).list();
+}
+
+export function remove_state(id: string, state_dir?: string): void {
+	create_file_state_repository(state_dir).remove(id);
+}
+
+export function remove_state_by_directory(directory: string, state_dir?: string): void {
+	create_file_state_repository(state_dir).remove_by_directory(directory);
+}
+
+export function is_expired(state: InstanceState, now_ms: number, idle_ttl_ms: number): boolean {
+	if (state.status !== "idle") return false;
+
+	const updated_at = Date.parse(state.updated_at);
+	if (!Number.isFinite(updated_at)) return true;
+	return now_ms - updated_at > idle_ttl_ms;
+}
+
+export function cleanup_stale(state_dir?: string, opts: { now?: number; idle_ttl_ms?: number } = {}): void {
+	const dir = state_dir ?? DEFAULT_STATE_DIR;
+	if (!existsSync(dir)) return;
+
+	const now = opts.now ?? Date.now();
+	const idle_ttl_ms = opts.idle_ttl_ms ?? DEFAULT_IDLE_TTL_MS;
+
+	for (const file of readdirSync(dir).filter((entry) => entry.endsWith(".json"))) {
+		const file_path = join(dir, file);
+		const states = parse_state_file(file_path);
+		const state = states[0];
+		if (!state || !is_pid_alive(state.pid) || is_expired(state, now, idle_ttl_ms)) {
+			remove_file(file_path);
+		}
 	}
 }
 
