@@ -97,7 +97,7 @@ The notification pipeline is **agnostic** to where events come from. Today: plug
 The `event` hook is the key mechanism. A plugin exports an async function that returns hooks:
 
 ```typescript
-import type { Plugin } from "@opencode-ai/plugin"
+import type { Plugin } from "@opencode/plugin"
 
 export const MyPlugin: Plugin = async ({ $, client, project, directory }) => {
   return {
@@ -215,7 +215,7 @@ Maps opencode plugin events to OcnEvents:
 ### Plugin Entry Point (`src/plugin.ts`)
 
 ```typescript
-import type { Plugin } from "@opencode-ai/plugin"
+import type { Plugin } from "@opencode/plugin"
 import { adapt_plugin_event } from "./sources/plugin-adapter"
 import { write_state, cleanup_stale } from "./state"
 import { create_notifier_hub } from "./notify"
@@ -380,7 +380,7 @@ All tests use in-memory fakes, no mocking:
 ### Phase 0: Scaffold (~40 LOC)
 **Sequential. Blocks everything.**
 
-- `package.json` with `@opencode-ai/plugin` peer dep, `zod` dep, bun scripts
+- `package.json` with `@opencode/plugin` peer dep, `zod` dep, bun scripts
 - `tsconfig.json`
 - `biome.json`
 - `src/types.ts` — OcnEvent, OcnStatus, InstanceState
@@ -481,13 +481,13 @@ Stretch (Phase 6): ~60 LOC
 ```json
 {
   "peerDependencies": {
-    "@opencode-ai/plugin": ">=1.0.0"
+    "@opencode/plugin": ">=1.0.0"
   },
   "dependencies": {
     "zod": "^3.x"
   },
   "devDependencies": {
-    "@opencode-ai/plugin": "^1.1.39",
+    "@opencode/plugin": "^1.1.39",
     "@biomejs/biome": "^1.x",
     "@types/bun": "latest",
     "typescript": "^5.x"
@@ -546,7 +546,7 @@ All adapters write to the same `~/.local/state/ocn/` directory. The tmux status 
 - Returns hooks object: { event: async ({ event }) => void }
 - event hook receives ALL bus events (session.idle, session.error, permission.updated, etc.)
 - Plugin runs in-process with each opencode instance
-- @opencode-ai/plugin is the type package (peer dep)
+- @opencode/plugin is the type package (peer dep)
 
 ## Tom's tmux integration pattern
 - Uses tmux user options (@nvim_status, @ocn_status) referenced in status-right
