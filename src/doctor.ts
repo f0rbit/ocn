@@ -259,7 +259,7 @@ function check_registration(): CheckResult {
 async function check_service(): Promise<CheckResult> {
 	let process_handle: Bun.Subprocess<"ignore", "pipe", "ignore">;
 	try {
-		process_handle = Bun.spawn(["opencode2", "api", "get", "/api/health"], {
+		process_handle = Bun.spawn(["opencode", "api", "get", "/api/location"], {
 			stdout: "pipe",
 			stderr: "ignore",
 		});
@@ -279,7 +279,7 @@ async function check_service(): Promise<CheckResult> {
 
 		if (result.kind === "timeout") {
 			process_handle.kill();
-			return { severity: "warn", message: "service health probe timed out after 5s" };
+			return { severity: "warn", message: "service probe timed out after 5s" };
 		}
 
 		const output = await new Response(process_handle.stdout).text();
@@ -287,10 +287,10 @@ async function check_service(): Promise<CheckResult> {
 			return { severity: "warn", message: `service is unreachable (exit ${result.exit_code})` };
 		}
 
-		const version = output.match(/"version"\s*:\s*"([^"]+)"/)?.[1] ?? "unknown version";
-		return { severity: "ok", message: `service healthy (${version})` };
+		const directory = output.match(/"directory"\s*:\s*"([^"]+)"/)?.[1] ?? "unknown directory";
+		return { severity: "ok", message: `service reachable (${directory})` };
 	} catch (error) {
-		return { severity: "warn", message: `service health probe failed: ${describe_error(error)}` };
+		return { severity: "warn", message: `service probe failed: ${describe_error(error)}` };
 	}
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Plugin } from "@opencode-ai/plugin";
+import { Plugin } from "@opencode/plugin";
 
 type SetupContext = Parameters<Plugin.Plugin["setup"]>[0];
 type HasEventSubscribe = SetupContext["event"] extends { subscribe: (...args: never[]) => unknown } ? true : false;

@@ -1,4 +1,4 @@
-import { Plugin } from "@opencode-ai/plugin";
+import { Plugin } from "@opencode/plugin";
 import { load_config } from "./config";
 import type { OcnConfig } from "./config";
 import { create_notifier_hub } from "./notify";

@@ -38,7 +38,7 @@ describe("JSONC registration probe", () => {
 	it("ignores comments outside strings", () => {
 		const input = `{
 			// plugin registration
-			"plugins": ["/Users/tom/dev/ocn/src/plugin.ts"],
+			"plugins": ["/Users/tom/dev/ocn"],
 			"url": "https://example.test/a//b", /* trailing comment */
 		}`;
 
