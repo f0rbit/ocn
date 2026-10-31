@@ -11,25 +11,28 @@ Terminal-native session notifications for [OpenCode](https://opencode.ai). Track
 
 ## Install
 
-```bash
-# Add to your opencode.json
+```jsonc
+// Add to your opencode.jsonc
 {
-  "plugin": ["ocn@latest"]
+  "plugins": ["ocn@latest"]
 }
 ```
 
+OCN targets OpenCode 2.2.5 and `@opencode/plugin` 2.2.5. When upgrading OpenCode, bump the plugin SDK dependency to the same version and verify the event contract.
+
 ## tmux Setup
 
-Copy the status script and add it to your tmux config:
+Link the status scripts and add the tmux command to your config:
 
 ```bash
-# Copy the script
-cp node_modules/ocn/scripts/ocn-tmux-status ~/.local/bin/
-chmod +x ~/.local/bin/ocn-tmux-status
+# Run from the ocn package directory
+mkdir -p ~/.local/bin && ln -sf "$(pwd)/scripts/ocn-tmux-status" ~/.local/bin/ocn-tmux-status && ln -sf "$(pwd)/scripts/ocn-status" ~/.local/bin/ocn-status
 
 # Add to tmux.conf (before existing status-right content)
 set -g status-right "#(~/.local/bin/ocn-tmux-status)#{?@nvim_status,#{@nvim_status},} %Y-%m-%d %H:%M"
 ```
+
+Copies break module resolution by design; keep these installs as symlinks.
 
 ### Status indicators
 
@@ -73,7 +76,7 @@ Themes: `tokyonight` (default), `catppuccin`, `plain`.
 
 ## How it works
 
-Each opencode instance runs the plugin in-process via the `event` hook. On state transitions, it:
+Each opencode instance runs the plugin in-process via `ctx.event.subscribe()`. On state transitions, it:
 
 1. Writes a JSON state file to `~/.local/state/ocn/<pid>.json`
 2. Fires notifications (macOS, bell, tmux pane) based on config

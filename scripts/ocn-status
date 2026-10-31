@@ -1,11 +1,11 @@
 #!/usr/bin/env bun
 
-import { cleanup_stale, read_all_states } from "../src/state";
-import { load_config } from "../src/config";
+import { load_config } from "ocn/config";
+import { cleanup_stale, read_all_states } from "ocn/state";
 
 const config = load_config();
 
-cleanup_stale(config.state_dir);
+cleanup_stale(config.state_dir, { idle_ttl_ms: config.idle_ttl_ms, stale_ttl_ms: config.stale_ttl_ms });
 
 const states = read_all_states(config.state_dir);
 

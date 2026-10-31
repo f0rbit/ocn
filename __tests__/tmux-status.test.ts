@@ -3,11 +3,14 @@ import { count_statuses, render_json_status, render_tmux_status } from "../src/t
 import type { InstanceState } from "../src/types";
 
 const make_state = (status: InstanceState["status"], project = "test"): InstanceState => ({
+	id: `${project}-${status}`,
 	pid: 1234,
 	directory: `/Users/tom/dev/${project}`,
 	project,
 	status,
+	session_id: `${project}-session`,
 	last_transition: new Date().toISOString(),
+	updated_at: new Date().toISOString(),
 });
 
 describe("count_statuses", () => {
@@ -77,6 +80,7 @@ describe("render_json_status", () => {
 	it("returns valid JSON with counts", () => {
 		const states = [make_state("idle"), make_state("busy")];
 		const result = JSON.parse(render_json_status(states));
+		expect(result.version).toBe("0.1.0");
 		expect(result.total).toBe(2);
 		expect(result.idle).toBe(1);
 		expect(result.busy).toBe(1);

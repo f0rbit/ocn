@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export type OcnStatus = "idle" | "busy" | "prompting" | "error";
 
 export type OcnEvent = {
@@ -14,11 +16,18 @@ export type OcnEvent = {
 	timestamp: string;
 };
 
-export type InstanceState = {
-	pid: number;
-	directory: string;
-	project: string;
-	status: OcnStatus;
-	last_transition: string;
-	session_id?: string;
-};
+export const InstanceStateSchema = z.object({
+	id: z.string(),
+	pid: z.number(),
+	directory: z.string(),
+	project: z.string(),
+	status: z.enum(["idle", "busy", "prompting", "error"]),
+	session_id: z.string(),
+	last_transition: z.string(),
+	updated_at: z.string(),
+	error_message: z.string().optional(),
+	permission_title: z.string().optional(),
+	question_title: z.string().optional(),
+});
+
+export type InstanceState = z.infer<typeof InstanceStateSchema>;

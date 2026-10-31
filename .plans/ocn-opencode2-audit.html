@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Plan: OCN OpenCode2 compatibility audit</title>
+    <style>
+      :root {
+        --bg: #0d1117;
+        --panel: #161b22;
+        --border: #30363d;
+        --text: #c9d1d9;
+        --muted: #8b949e;
+        --accent: #58a6ff;
+        --todo: #6e7681;
+        --doing: #d29922;
+        --done: #2ea043;
+        --blocked: #f85149;
+        --decision: #db61a2;
+      }
+      html, body {
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        margin: 0;
+        padding: 2rem;
+      }
+      main { max-width: 1100px; margin: 0 auto; }
+      h1, h2, h3 {
+        color: var(--text);
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0.3em;
+      }
+      h1 { font-size: 1.8rem; }
+      h2 { font-size: 1.4rem; margin-top: 2.5rem; }
+      h3 { font-size: 1.1rem; border: none; padding: 0; margin-top: 1.5rem; }
+      h4 {
+        font-size: 0.8em;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        margin: 0 0 0.3em 0;
+      }
+      code, pre { font-family: "SF Mono", Menlo, monospace; font-size: 0.9em; }
+      code { background: var(--panel); padding: 1px 6px; border-radius: 4px; }
+      pre {
+        background: var(--panel);
+        padding: 12px;
+        border-radius: 6px;
+        overflow-x: auto;
+        border: 1px solid var(--border);
+      }
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 0.75em;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .badge.todo { background: var(--todo); color: #fff; }
+      .badge.doing { background: var(--doing); color: #000; }
+      .badge.done { background: var(--done); color: #fff; }
+      .badge.blocked { background: var(--blocked); color: #fff; }
+      .badge.decision { background: var(--decision); color: #fff; }
+      .badge.recommended { background: var(--accent); color: #000; }
+      .root-cause {
+        background: var(--panel);
+        border-left: 3px solid var(--accent);
+        padding: 0.75rem 1rem;
+        border-radius: 0 6px 6px 0;
+        margin: 1rem 0;
+      }
+      .root-cause p { margin: 0.4em 0; }
+      .option {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        margin: 1rem 0;
+        opacity: 0.85;
+      }
+      .option.recommended {
+        opacity: 1;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent) inset;
+      }
+      .option > header, .task > header {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        margin-bottom: 0.5rem;
+      }
+      .option h3, .task h3 { margin: 0; flex: 1; }
+      .option h4 { margin-top: 0.9rem; }
+      .philosophy-score th:first-child, .philosophy-score td:first-child { width: 35%; }
+      .philosophy-score td:nth-child(2) {
+        font-family: "SF Mono", Menlo, monospace;
+        font-weight: 600;
+        width: 60px;
+        text-align: center;
+      }
+      .recommendation {
+        background: rgba(88, 166, 255, 0.08);
+        border-left: 3px solid var(--accent);
+        padding: 0.75rem 1rem;
+        border-radius: 0 6px 6px 0;
+        margin: 1.5rem 0;
+      }
+      .recommendation h3 { margin-top: 0; border: none; padding: 0; }
+      .task {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        margin: 1rem 0;
+      }
+      .task > header { margin-bottom: 0.75rem; }
+      .meta {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: 0.4em 1em;
+        font-size: 0.85em;
+        color: var(--muted);
+        margin: 0 0 0.75rem 0;
+      }
+      .meta dt { font-weight: 600; color: var(--text); }
+      .meta dd { margin: 0; }
+      .task section { margin-top: 0.75rem; }
+      .proof, .empty-proof, .adversary {
+        padding: 0.5rem 0.75rem;
+        border-radius: 0 6px 6px 0;
+      }
+      .proof { background: rgba(46, 160, 67, 0.08); border-left: 3px solid var(--done); }
+      .empty-proof {
+        background: rgba(110, 118, 129, 0.08);
+        border-left: 3px solid var(--todo);
+        color: var(--muted);
+        font-style: italic;
+      }
+      .adversary { background: rgba(219, 97, 162, 0.08); border-left: 3px solid var(--decision); }
+      .adversary ul { margin: 0.3em 0; padding-left: 1.5em; }
+      table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+      th, td { padding: 0.5em 0.75em; text-align: left; border-bottom: 1px solid var(--border); }
+      th {
+        font-weight: 600;
+        color: var(--muted);
+        font-size: 0.8em;
+        text-transform: uppercase;
+      }
+      a { color: var(--accent); }
+      .phase { margin: 2rem 0; padding-left: 1rem; border-left: 3px solid var(--accent); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Plan: OCN OpenCode2 compatibility audit</h1>
+        <span class="badge todo">todo</span>
+        <p>Restore and harden OCN for OpenCode 2 beta while preserving the existing tmux status-right and SketchyBar agents surfaces. The audit already proves that OpenCode2 is healthy and the local status scripts execute, but no OCN plugin is active, the package is typed against the V1 plugin API, and the active configuration does not register it. User decisions are locked: V2-only (V1 dropped), local-path registration bootstrappable from the dotfiles setup, TTL expiry with automatic resurrection, one package PR at feature end.</p>
+      </header>
+
+      <section id="root-cause">
+        <h2>Root cause</h2>
+        <div class="root-cause">
+          <p><strong>Stated goal:</strong> Investigate why OCN, tmux, and SketchyBar appear broken after switching to <code>opencode2</code>, then audit and repair the integration.</p>
+          <p><strong>Underlying need:</strong> Establish one verified, version-aware event-to-state contract between the OpenCode2 service and the existing status consumers, with installation and diagnostics that fail visibly instead of silently rendering zero sessions.</p>
+          <p><strong>Why this matters:</strong> The current live probes show <code>opencode2 v0.0.0-beta-18684</code> is healthy, both OCN symlinks execute, and the OCN test suite passes, yet <code>/api/plugin</code> reports only built-ins and the state directory is empty. The widget is therefore downstream of a missing/incompatible producer, not primarily a tmux or SketchyBar rendering defect. OpenCode2 intentionally breaks V1 plugins and uses a shared service whose process identity cannot represent a session.</p>
+        </div>
+      </section>
+
+      <section id="alternatives">
+        <h2>Alternatives considered</h2>
+
+        <article class="option recommended" id="option-1">
+          <header>
+            <h3>Option 1: Native OpenCode2 plugin with session-keyed file state</h3>
+            <span class="badge recommended">recommended</span>
+          </header>
+          <p>Port OCN to the V2 <code>define({ id, setup })</code> plugin API, subscribe to the service event stream from the plugin context, normalize only the events needed by OCN, and keep the existing file boundary for tmux and SketchyBar. Replace PID-only identity with canonical location plus session identity and retain an in-memory repository for tests.</p>
+          <h4>Real-world examples</h4>
+          <ul>
+            <li><strong>OpenCode V2 Promise plugins</strong> — use a typed <code>define</code>/<code>setup</code> entrypoint and imperative registrations rather than the V1 returned-hooks object. <a href="https://opencode.ai/v2/docs/build/plugins">source</a></li>
+            <li><strong>OpenCode TUI event context</strong> — consumes the server event stream and filters events by project/location, the same service-owned event boundary OCN needs. <a href="https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/cli/cmd/tui/context/event.ts">source</a></li>
+          </ul>
+          <h4>Pros</h4>
+          <ul>
+            <li>Uses the supported OpenCode2 extension point, so no extra daemon or polling race is needed.</li>
+            <li>Preserves the current tmux and SketchyBar contracts and their quiet, integration-first presentation.</li>
+            <li>Session-keyed state fixes both shared-service PID collisions and multiple sessions in one location.</li>
+          </ul>
+          <h4>Cons</h4>
+          <ul>
+            <li>The V2 plugin API is beta and the published docs currently need to be checked against the exact package bundled by beta-18684 before implementation.</li>
+            <li>Dropping V1 support is a public package compatibility break unless the user explicitly wants a dual-runtime release.</li>
+          </ul>
+          <h4>Philosophy alignment</h4>
+          <table class="philosophy-score">
+            <thead><tr><th>Principle</th><th>Score</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td>Single source of truth</td><td>5/5</td><td>One V2 event adapter and one session-state schema feed every consumer.</td></tr>
+              <tr><td>Strictest types possible</td><td>5/5</td><td>The V2 plugin contract, event discriminants, status union, and session identity are narrow.</td></tr>
+              <tr><td>Compiler catches bugs</td><td>4/5</td><td>Compile-time V2 imports catch API drift; runtime event validation still remains necessary.</td></tr>
+              <tr><td>Inferred types propagate</td><td>5/5</td><td>Zod/domain schemas derive state and JSON shapes into adapters and consumers.</td></tr>
+              <tr><td>In-memory repositories</td><td>5/5</td><td>Event source and state repository are injectable, inspectable fakes rather than HTTP/filesystem mocks.</td></tr>
+            </tbody>
+          </table>
+        </article>
+
+        <article class="option" id="option-2">
+          <header><h3>Option 2: Standalone OpenCode2 client watcher</h3></header>
+          <p>Do not load a plugin. Run one OCN-owned watcher that connects to the shared service through the V2 client or <code>/api/event</code>, maintains session state, and writes the same files consumed by tmux and SketchyBar.</p>
+          <h4>Real-world examples</h4>
+          <ul>
+            <li><strong>OpenCode API clients</strong> — the documented V2 client and <code>api</code> command use the generated HTTP contract and expose <code>/api/event</code>, <code>/api/session/active</code>, and <code>/api/health</code>. <a href="https://opencode.ai/v2/docs/api">source</a></li>
+            <li><strong>tmux format commands</strong> — tmux deliberately supports external <code>#()</code> commands in status formats, which is the existing OCN consumer pattern. <a href="https://man7.org/linux/man-pages/man1/tmux.1.html">source</a></li>
+          </ul>
+          <h4>Pros</h4>
+          <ul><li>Decouples OCN from the unstable plugin implementation API and observes the shared service as a normal client.</li><li>One watcher can naturally aggregate multiple locations and sessions.</li></ul>
+          <h4>Cons</h4>
+          <ul><li>Introduces a process lifecycle, restart, duplicate-watcher, and launch-at-login problem that OCN intentionally avoided.</li><li>Permissions/authentication and service discovery become production concerns; tmux and SketchyBar can show stale data while the watcher is down.</li></ul>
+          <h4>Philosophy alignment</h4>
+          <table class="philosophy-score">
+            <thead><tr><th>Principle</th><th>Score</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td>Single source of truth</td><td>4/5</td><td>The service is authoritative, but a second long-lived process mirrors it into files.</td></tr>
+              <tr><td>Strictest types possible</td><td>4/5</td><td>Generated client types help, but event JSON still crosses a process boundary.</td></tr>
+              <tr><td>Compiler catches bugs</td><td>4/5</td><td>Client endpoint types catch shape drift; connection/lifecycle failures remain runtime concerns.</td></tr>
+              <tr><td>Inferred types propagate</td><td>4/5</td><td>Provider interfaces can preserve domain types, with translation at the HTTP boundary.</td></tr>
+              <tr><td>In-memory repositories</td><td>5/5</td><td>A watcher can use an in-memory event client and state repository in integration tests.</td></tr>
+            </tbody>
+          </table>
+        </article>
+
+        <article class="option" id="option-3">
+          <header><h3>Option 3: One package with V1 and V2 runtime adapters</h3></header>
+          <p>Keep the current V1 returned-hooks entrypoint and add a V2 entrypoint selected by package export/configuration, sharing the domain adapter, state repository, and consumers underneath.</p>
+          <h4>Real-world examples</h4>
+          <ul>
+            <li><strong>Node.js conditional exports</strong> — packages expose multiple supported entrypoints while keeping a single package boundary and explicit conditions. <a href="https://nodejs.org/api/packages.html#conditional-exports">source</a></li>
+            <li><strong>OpenCode plugin package</strong> — the upstream package documents separate V1 and V2 API paths during the beta migration period, demonstrating the possible compatibility shape. <a href="https://raw.githubusercontent.com/anomalyco/opencode/dev/packages/plugin/src/v2/promise/README.md">source</a></li>
+          </ul>
+          <h4>Pros</h4>
+          <ul><li>Preserves existing V1 users while giving this machine a V2 path.</li><li>Shared state and rendering fixes still address the real consumer problems.</li></ul>
+          <h4>Cons</h4>
+          <ul><li>Two plugin entrypoints, two SDK contracts, and two fixture suites increase release and debugging cost for a small personal package.</li><li>Configuration can accidentally load the wrong entrypoint; duplicated lifecycle semantics undermine the single-source goal.</li></ul>
+          <h4>Philosophy alignment</h4>
+          <table class="philosophy-score">
+            <thead><tr><th>Principle</th><th>Score</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td>Single source of truth</td><td>2/5</td><td>Two upstream API shapes must remain behaviorally equivalent and are easy to let diverge.</td></tr>
+              <tr><td>Strictest types possible</td><td>3/5</td><td>Each adapter can be typed, but the package boundary must admit two incompatible contracts.</td></tr>
+              <tr><td>Compiler catches bugs</td><td>3/5</td><td>Compilation catches each entrypoint independently, not cross-runtime semantic drift.</td></tr>
+              <tr><td>Inferred types propagate</td><td>3/5</td><td>Shared domain types help, but compatibility shims add translation and assertions.</td></tr>
+              <tr><td>In-memory repositories</td><td>4/5</td><td>Repository tests remain clean, but every runtime needs separate source fixtures.</td></tr>
+            </tbody>
+          </table>
+        </article>
+
+        <article class="option" id="option-4">
+          <header><h3>Option 4: Pin V1 and defer the OpenCode2 port</h3></header>
+          <p>Keep OCN unchanged, run the old <code>opencode</code> binary for notification sessions, and treat OpenCode2 as unsupported until its plugin API stabilizes.</p>
+          <h4>Real-world examples</h4>
+          <ul>
+            <li><strong>OpenCode migration guidance</strong> — explicitly supports V1 and V2 side by side and recommends keeping V1 setup until required V2 behavior is confirmed. <a href="https://opencode.ai/v2/docs/migrate-v1">source</a></li>
+            <li><strong>Linux stable userspace ABI</strong> — preserves an older stable interface while internal implementations evolve, a sound strategy when compatibility is more valuable than new capability. <a href="https://www.kernel.org/doc/html/latest/admin-guide/abi-stable.html">source</a></li>
+          </ul>
+          <h4>Pros</h4>
+          <ul><li>Lowest immediate code risk and no dependency on an unfinished V2 plugin contract.</li><li>Existing 74 tests and V1 behavior remain untouched.</li></ul>
+          <h4>Cons</h4>
+          <ul><li>Does not solve the user's current OpenCode2 workflow; the active service already has no OCN state.</li><li>Maintains stale PID-based state and silently broken installation guidance, increasing future migration cost.</li></ul>
+          <h4>Philosophy alignment</h4>
+          <table class="philosophy-score">
+            <thead><tr><th>Principle</th><th>Score</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td>Single source of truth</td><td>4/5</td><td>One implementation remains authoritative, but the user's active V2 service is outside that truth.</td></tr>
+              <tr><td>Strictest types possible</td><td>4/5</td><td>The existing V1 code is typed, though its declared API is the wrong runtime contract.</td></tr>
+              <tr><td>Compiler catches bugs</td><td>4/5</td><td>Existing checks stay green but cannot catch unsupported V2 loading.</td></tr>
+              <tr><td>Inferred types propagate</td><td>4/5</td><td>Current domain types are simple, but no V2 type errors can propagate if V2 is not integrated.</td></tr>
+              <tr><td>In-memory repositories</td><td>5/5</td><td>Current tests already isolate state and notifier behavior without mocks.</td></tr>
+            </tbody>
+          </table>
+        </article>
+
+        <section class="recommendation">
+          <h3>Recommendation: Option 1</h3>
+          <p>Port directly to the OpenCode2 plugin/event boundary and retain the existing file-fed status surfaces. Its 4.8/5 philosophy average is strongest because it removes the unsupported V1 contract without adding a daemon, while session-keyed state and Zod-validated boundaries address the shared-service failure mode. The exact beta package must pass a compatibility probe first; if it does not expose the documented event subscription, stop before implementation and switch to Option 2 rather than guessing at a private API.</p>
+        </section>
+      </section>
+
+      <section id="affected-areas">
+        <h2>Affected areas</h2>
+        <table>
+          <thead><tr><th>Path</th><th>Change</th></tr></thead>
+          <tbody>
+            <tr><td><code>package.json</code>, <code>bun.lock</code>, <code>tsconfig.json</code></td><td>modify — pin the exact OpenCode2-compatible plugin package, expose the V2 entrypoint, build compiled CLI bins, and add read-only <code>check</code>/<code>gate</code>/<code>smoke</code> verbs.</td></tr>
+            <tr><td><code>src/types.ts</code>, <code>src/state.ts</code>, <code>src/sources/*</code></td><td>modify/add — define Zod-backed domain/event contracts, injectable event source and state repository interfaces, in-memory fakes, and location-plus-session identity.</td></tr>
+            <tr><td><code>src/plugin.ts</code>, <code>src/notify/*</code></td><td>modify — use the V2 plugin lifecycle, event subscription cleanup, per-session transitions, and preserved notification behavior.</td></tr>
+            <tr><td><code>__tests__/*</code></td><td>modify/add — V2 plugin-shape, event-fixture, repository-contract, multi-session/multi-location, lifecycle, JSON-contract, and packed-package execution tests.</td></tr>
+            <tr><td><code>scripts/ocn-tmux-status</code>, <code>scripts/ocn-status</code>, <code>README.md</code>, <code>examples/*</code></td><td>modify — make installed bins self-contained, preserve the tmux/JSON contract, document V2 registration, and add a diagnostic <code>ocn doctor</code>-equivalent verb if the final CLI shape warrants it.</td></tr>
+            <tr><td><code>/Users/tom/dev/dotfiles/opencode/opencode.jsonc</code></td><td>modify — register OCN with the V2 <code>plugins</code> field pointing at the local OCN checkout (decided).</td></tr>
+            <tr><td><code>/Users/tom/dev/dotfiles/README.md</code></td><td>modify — add the OCN install/bootstrap step (clone <code>~/dev/ocn</code>, <code>bun install</code>, bin symlinks) to the machine-setup instructions.</td></tr>
+            <tr><td><code>/Users/tom/dev/dotfiles/tmux/tmux.conf</code>, <code>/Users/tom/dev/dotfiles/sketchybar/items/widgets/agents.lua</code></td><td>audit/modify only where required — keep the existing status-right and agents widget, harden install-path/JSON assumptions, and do not add a new status surface.</td></tr>
+            <tr><td><code>AGENTS.md</code> (new at OCN root; relevant dotfiles notes if needed)</td><td>add — record the V2 package/version contract, state identity, install path, live probes, and the no-new-widget integration rule.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="architecture-decisions">
+        <h2>Architecture decisions</h2>
+        <ul>
+          <li><strong>Target V2 only — decided.</strong> The active binary is beta-18684 and official migration docs say V1 plugins do not work in V2. The user has confirmed dropping V1 support: the package uses the exact V2 plugin API (<code>define({ id, setup })</code>) and the V1 entrypoint is deleted. This is the principal breaking change below.</li>
+          <li><strong>Preserve the file boundary.</strong> The tmux status command and SketchyBar agent widget already consume the right kind of stable, inspectable boundary. The producer changes; the existing surfaces do not become a new page, daemon, or widget.</li>
+          <li><strong>Use session identity, not process identity.</strong> V2's shared service means a PID identifies the service, not a project/session. State records must carry a stable key derived from canonical location and session ID, plus owner/service metadata for cleanup. Idle records expire via a configurable TTL (decided): readers skip and cleanup removes records whose <code>updated_at</code> exceeds the TTL; any subsequent event for the same session rewrites the record, so expiry is non-destructive and sessions resurrect automatically. Explicit session-deletion events remove records immediately; PID liveness is only a fallback for dead service owners.</li>
+          <li><strong>Make external boundaries typed twice.</strong> Import the exact SDK/V2 types so compilation catches package drift, then validate event and persisted JSON at runtime with Zod. Unknown event types and malformed state files are ignored with diagnostics, never coerced into valid-looking zero sessions.</li>
+          <li><strong>Use Provider-style seams.</strong> An event source and a state repository each get a production implementation and an in-memory implementation. Tests exercise the plugin workflow without HTTP, service, filesystem, tmux, or OS-notification mocks.</li>
+          <li><strong>Minimize API surface if the fallback is needed.</strong> The standalone path may use only service discovery/health, <code>/api/event</code>, and optionally <code>/api/session/active</code> for reconciliation. It must not invent an unauthenticated direct URL when the OpenCode client can discover the service.</li>
+          <li><strong>Integration-first UI decision.</strong> No new page, nav item, or top-level surface is proposed. The existing tmux status-right and SketchyBar agents widget already own the user's “what agent sessions need attention?” job; this work only repairs their producer and preserves their compact Tokyo Quiet hierarchy. The page-vs-integrate gate is therefore not applicable, and adding a separate OCN dashboard would be aggregation rather than a distinct job.</li>
+        </ul>
+      </section>
+
+      <section id="phases">
+        <h2>Phases</h2>
+        <p>Executed strictly sequentially. Coders write diffs only; the reviewer runs the full verification for the phase, fixes forward, and commits. OCN's package changes become one thematic PR at feature end. The dotfiles repository has no CI/PR flow per its <code>AGENTS.md</code>, so its consumer wiring is verified and committed directly according to that repository's convention at the same feature end.</p>
+
+        <section class="phase" id="phase-1">
+          <header><h3>Phase 1: Lock the OpenCode2 contract and session-state foundation</h3><span class="badge done">done</span></header>
+          <p>First prove the exact beta API instead of relying on the documentation/source mismatch, then establish one typed domain and repository contract before changing the plugin. If the installed beta cannot compile a V2 event subscription, stop this plan at the compatibility gate and switch to the standalone watcher decision.</p>
+          <dl class="meta">
+            <dt>Devpad task</dt><dd>Created after approval; link back to <code>.plans/ocn-opencode2-audit.html#phase-1</code>.</dd>
+            <dt>Mode</dt><dd>sequential — package/version choice and domain identity changes are shared foundations.</dd>
+          </dl>
+
+          <article class="task" id="task-1-1">
+            <header><h3>Task 1.1: Verify and pin the OpenCode2 plugin contract</h3><span class="badge done">done</span></header>
+            <dl class="meta"><dt>Files</dt><dd><code>package.json</code>, <code>bun.lock</code>, <code>tsconfig.json</code>, new V2 contract fixture/test</dd><dt>Dependencies</dt><dd>none</dd></dl>
+            <section data-kind="scope"><h4>Scope</h4><p>Install the exact <code>@opencode-ai/plugin</code> beta compatible with <code>opencode2 v0.0.0-beta-18684</code>, compile a minimal <code>define({ id, setup })</code> module, and prove the documented event subscription/client surface exists. Expose the package entrypoint in the shape OpenCode2 loads and remove the misleading V1-only dependency range. Record the selected version and the probe result in the OCN root <code>AGENTS.md</code>.</p></section>
+            <section data-kind="acceptance"><h4>Acceptance</h4><pre>bun run typecheck
+bun test __tests__/plugin-contract.test.ts</pre><p>Expected: the real pinned package imports the V2 entrypoint without casts, the exported plugin has the V2 shape, and the test fails clearly if the beta lacks the documented event API.</p></section>
+          </article>
+
+          <article class="task" id="task-1-2">
+            <header><h3>Task 1.2: Define session-keyed state and in-memory repository contracts</h3><span class="badge done">done</span></header>
+            <dl class="meta"><dt>Files</dt><dd><code>src/types.ts</code>, <code>src/state.ts</code>, new <code>src/repositories/*</code>, <code>__tests__/state.test.ts</code>, new repository contract tests</dd><dt>Dependencies</dt><dd>Task 1.1</dd></dl>
+            <section data-kind="scope"><h4>Scope</h4><p>Replace PID-only identity with a stable location/session key and add a Zod-backed <code>InstanceState</code> schema. Keep a filesystem implementation for tmux/SketchyBar and add an inspectable in-memory implementation. Define cleanup for terminal session deletion, owner teardown, malformed files, and TTL-expired idle records (decided): expiry skips/removes a record and any later event for the session recreates it (resurrection); preserve the existing aggregate counts and status literals.</p></section>
+            <section data-kind="acceptance"><h4>Acceptance</h4><pre>bun test __tests__/state.test.ts __tests__/state-repository.test.ts
+bun run typecheck</pre><p>Expected: two sessions sharing one service PID and two locations sharing a project name remain distinct; invalid JSON is rejected/skipped; TTL-expired records are skipped/removed and a subsequent event for the session recreates them; production and in-memory repositories satisfy the same inferred interface.</p></section>
+          </article>
+
+          <section data-kind="verification"><h4>Phase verification</h4><pre>bun run typecheck
+bun test</pre><p>Expected: the full existing suite plus new contract tests pass, and a reviewer confirms the V2 compatibility probe is against the exact pinned package rather than a workspace-only assumption.</p></section>
+          <section data-kind="adversary"><h4>Adversary checklist (whole phase)</h4><div class="adversary"><ul><li>No <code>any</code>, broad casts, or duplicate V1/V2 domain schemas are introduced.</li><li>Session ID is not optional for a V2 session record; location identity cannot be inferred from PID alone.</li><li>Malformed, empty, duplicate, and stale state cases have deterministic behavior.</li><li>The in-memory repository implements the same exported interface as the filesystem repository at compile time.</li><li>If the package contract probe fails, no private/bundled API is guessed; the phase is blocked and Option 2 is revisited.</li></ul></div></section>
+          <section data-kind="proof"><h4>Proof</h4><div class="proof"><p>Commits: <code>336f929</code> (plan), <code>fca00bf</code> (implementation). Package pair: <code>opencode2 0.0.0-beta-18684</code> + <code>@opencode-ai/plugin 0.0.0-beta-18684</code>. Compatibility probe: <code>Plugin.define</code>, <code>Context.event.subscribe()</code> as <code>AsyncIterable</code>, and <code>Context.location.directory</code> pass against the installed beta.</p><pre>bun run typecheck — pass; bun test — 90 pass, 0 fail; bunx --bidi biome check . — Checked 25 files in 21ms. No fixes applied.</pre></div></section>
+        </section>
+
+        <section class="phase" id="phase-2">
+          <header><h3>Phase 2: Port event ingestion and notification lifecycle to V2</h3><span class="badge done">done</span></header>
+          <p>Wire the V2 event stream into the domain adapter and session repository. Keep event normalization independent of notification side effects so the multi-session behavior is testable with in-memory sources.</p>
+          <dl class="meta"><dt>Devpad task</dt><dd>Created after approval; link back to <code>.plans/ocn-opencode2-audit.html#phase-2</code>.</dd><dt>Mode</dt><dd>sequential — adapter, plugin lifecycle, and notifier transition semantics share the new session contract.</dd></dl>
+
+          <article class="task" id="task-2-1">
+            <header><h3>Task 2.1: Normalize the V2 event stream</h3><span class="badge done">done</span></header>
+            <dl class="meta"><dt>Files</dt><dd><code>src/sources/plugin-adapter.ts</code>, new <code>src/sources/v2-event.ts</code>, <code>src/types.ts</code>, <code>__tests__/plugin-adapter.test.ts</code>, new V2 fixture tests</dd><dt>Dependencies</dt><dd>Phase 1</dd></dl>
+            <section data-kind="scope"><h4>Scope</h4><p>Map only the verified V2 session, status, error, permission, question, and deletion events into the domain union. Preserve child-session filtering, but key it by session ID and location. Decode external event payloads with the pinned SDK/Zod boundary and ignore unknown/future events with structured diagnostics.</p></section>
+            <section data-kind="acceptance"><h4>Acceptance</h4><pre>bun test __tests__/plugin-adapter.test.ts __tests__/v2-event-source.test.ts
+bun run typecheck</pre><p>Expected: fixtures cover idle, busy, retry, error, permission/question prompting and replies, child sessions, deletion, malformed payloads, and an unknown event without unsafe assertions.</p></section>
+          </article>
+
+          <article class="task" id="task-2-2">
+            <header><h3>Task 2.2: Implement the V2 plugin lifecycle and transition notifications</h3><span class="badge done">done</span></header>
+            <dl class="meta"><dt>Files</dt><dd><code>src/plugin.ts</code>, <code>src/notify/index.ts</code>, <code>src/notify/types.ts</code>, <code>__tests__/notifiers.test.ts</code>, new plugin workflow tests</dd><dt>Dependencies</dt><dd>Task 2.1</dd></dl>
+            <section data-kind="scope"><h4>Scope</h4><p>Replace the V1 returned-hooks entrypoint with V2 <code>setup</code>, subscribe through the verified context, write one state per session, and abort/unsubscribe plus remove owned records on plugin cleanup. Preserve notification gating, debounce, child-session suppression, and tmux-pane best-effort behavior while making current status session-scoped.</p></section>
+            <section data-kind="acceptance"><h4>Acceptance</h4><pre>bun test __tests__/notifiers.test.ts __tests__/plugin-workflow.test.ts
+bun run typecheck</pre><p>Expected: an in-memory event sequence updates two sessions independently, sends notifications only on actionable transitions, and cleanup leaves no owned state behind; no live service or OS command is required for the workflow tests.</p></section>
+          </article>
+
+          <section data-kind="verification"><h4>Phase verification</h4><pre>bun run typecheck
+bun test</pre><p>Expected: all tests pass and the reviewer can demonstrate a shared service PID with multiple session records without cross-session status or notification leakage.</p></section>
+          <section data-kind="adversary"><h4>Adversary checklist (whole phase)</h4><div class="adversary"><ul><li>Stream cleanup uses an abort/unsubscribe path and does not leave a background async iterator running.</li><li>Permission/question replies restore only their session; one session's idle/error cannot overwrite another.</li><li>Session deletion removes state even when the service PID remains alive.</li><li>Unknown events and malformed payloads do not fabricate idle records or crash setup.</li><li>Notifications remain transition-based and child-session filtered; busy events do not notify.</li></ul></div></section>
+          <section data-kind="proof"><h4>Proof</h4><div class="proof"><p>Commit: <code>0320e39</code> (<code>feat: port event ingestion to OpenCode2</code>). V2 schema, adapter, and in-memory workflow tests cover event normalization, location/session isolation, deletion, malformed payloads, child-session suppression, and transition notifications.</p><pre>bun run typecheck — pass; bun test — 89 pass, 0 fail; bunx --bidi biome check . — Checked 28 files. No fixes applied.</pre></div></section>
+        </section>
+
+        <section class="phase" id="phase-3">
+          <header><h3>Phase 3: Repair distribution, wire existing consumers, and run the live audit</h3><span class="badge done">done</span></header>
+          <p>Make the installed commands reliable outside the repository, register the V2 plugin in the actual dotfiles configuration, and prove the complete path from OpenCode2 through state files to tmux and SketchyBar. Do not add a dashboard or new widget.</p>
+          <dl class="meta"><dt>Devpad task</dt><dd>Created after approval; link back to <code>.plans/ocn-opencode2-audit.html#phase-3</code>.</dd><dt>Mode</dt><dd>sequential — packaging must settle before consumer wiring and live verification.</dd></dl>
+
+          <article class="task" id="task-3-1">
+          <header><h3>Task 3.1: Make CLI bins and diagnostics install-safe</h3><span class="badge done">done</span></header>
+            <dl class="meta"><dt>Files</dt><dd><code>scripts/ocn-tmux-status</code>, <code>scripts/ocn-status</code>, new CLI/doctor entrypoint if needed, <code>package.json</code>, <code>README.md</code>, <code>examples/*</code>, <code>package-lock/package metadata only if generated by the chosen package manager</code></dd><dt>Dependencies</dt><dd>Phase 2</dd></dl>
+            <section data-kind="scope"><h4>Scope</h4><p>Compile or bundle the CLI entrypoints so a copied/packed install does not resolve <code>../src</code> outside the package. Keep <code>--json</code> fields consumed by SketchyBar, add schema/version metadata without removing existing counts, and add a read-only doctor probe covering package shape, active config registration, executable path, state directory, and service health. Change the current mutating <code>check</code> script to read-only and add the project gate/smoke commands.</p></section>
+            <section data-kind="acceptance"><h4>Acceptance</h4><pre>bun run gate
+bun run smoke
+bun pm pack --destination /private/var/folders/sj/pppcn6l15f5csdbprlmlff3r0000gn/T/ocn-pack
+bun test __tests__/cli-contract.test.ts</pre><p>Expected: gate exits 0 without rewriting files; smoke reports an empty but valid status contract; the packed artifact executes its bins from a temporary install directory; diagnostics identify missing registration/path/plugin state rather than silently reporting healthy zero sessions.</p></section>
+          </article>
+
+          <article class="task" id="task-3-2">
+            <header><h3>Task 3.2: Register OCN and preserve the tmux/SketchyBar integration</h3><span class="badge done">done</span></header>
+            <dl class="meta"><dt>Files</dt><dd><code>/Users/tom/dev/dotfiles/opencode/opencode.jsonc</code>, <code>/Users/tom/dev/dotfiles/README.md</code>, <code>/Users/tom/dev/dotfiles/tmux/tmux.conf</code>, <code>/Users/tom/dev/dotfiles/sketchybar/items/widgets/agents.lua</code></dd><dt>Dependencies</dt><dd>Task 3.1</dd></dl>
+            <section data-kind="scope"><h4>Scope</h4><p>Register OCN in the active dotfiles <code>opencode.jsonc</code> with the V2 <code>plugins</code> field using a local absolute path to the OCN V2 entrypoint (decided; no npm publish). Make the whole setup reproducible from <code>~/dev/dotfiles</code> per its bootstrap convention: extend the dotfiles README install steps (clone <code>~/dev/ocn</code>, <code>bun install</code>, symlink <code>ocn-tmux-status</code>/<code>ocn-status</code> into <code>~/.local/bin</code>) so another machine re-installs in one pass. Keep tmux's existing <code>#(~/.local/bin/ocn-tmux-status)</code> and SketchyBar's existing <code>fetchOcn</code> path. Update only hardcoded install-path, schema, or empty/error handling needed by the new CLI contract; preserve Tokyo Quiet hierarchy and the existing single agents widget.</p></section>
+            <section data-kind="acceptance"><h4>Acceptance</h4><pre>opencode2 api get /api/health
+opencode2 api get /api/plugin
+tmux show-options -g status-right
+sketchybar --query widgets.agents
+grep -n "ocn" /Users/tom/dev/dotfiles/README.md</pre><p>Expected: active plugin API output contains OCN after a fresh OpenCode2 location load, tmux retains the OCN segment, SketchyBar returns valid JSON with no new widget or surface, and the dotfiles README documents the one-pass OCN bootstrap (clone, install, symlinks).</p></section>
+          </article>
+
+          <article class="task" id="task-3-3">
+            <header><h3>Task 3.3: Reproduce the end-to-end lifecycle and record the audit</h3><span class="badge done">done</span></header>
+            <dl class="meta"><dt>Files</dt><dd><code>AGENTS.md</code>, integration fixtures/tests, plan proof; no new UI page</dd><dt>Dependencies</dt><dd>Task 3.2</dd></dl>
+            <section data-kind="scope"><h4>Scope</h4><p>Run one real OpenCode2 session and exercise idle, busy, error, permission, question, and deletion transitions across two locations/sessions. Compare service/API/plugin logs, state JSON, <code>ocn-tmux-status --json</code>, tmux status reload, and the agents widget. Use a fresh independent visual/IA critic with <code>visual-review</code> for the existing widget at desktop and 360px mobile-equivalent presentation; judge integration, clutter, and contract consistency rather than inventing a new design.</p></section>
+            <section data-kind="acceptance"><h4>Acceptance</h4><pre>bun run gate
+opencode2 api get /api/health
+opencode2 api get /api/plugin
+~/.local/bin/ocn-tmux-status --json
+~/.local/bin/ocn-tmux-status</pre><p>Expected: a real session produces one correctly keyed state, status transitions appear in both existing consumers, deletion/cleanup removes it, no secrets appear in diagnostics, and the independent critic verdict is “ship as-is” or lists concrete fixes that land before feature-end commit.</p></section>
+          </article>
+
+          <section data-kind="verification"><h4>Phase verification</h4><pre>bun run gate
+bun run smoke
+opencode2 api get /api/health
+opencode2 api get /api/plugin
+~/.local/bin/ocn-tmux-status --json
+tmux source-file ~/.config/tmux/tmux.conf
+sketchybar --reload
+sketchybar --query widgets.agents</pre><p>Expected: all commands exit successfully, the plugin is active for the tested location, JSON validates against the shared contract, tmux and SketchyBar remain responsive, and the reviewer records one OCN package PR plus the dotfiles direct-commit proof.</p></section>
+          <section data-kind="adversary"><h4>Adversary checklist (whole phase)</h4><div class="adversary"><ul><li>The packed CLI works from outside the source tree; no documentation still recommends copying a script whose relative imports escape the package.</li><li>Active config uses V2 <code>plugins</code>, not the legacy singular <code>plugin</code>, and the exact installed package source is unambiguous.</li><li>JSON remains backward-readable by <code>agents.lua</code>; missing binary, malformed JSON, and empty state remain safe without hiding a doctor failure.</li><li>Tmux reload does not block on a daemon or long API request, and SketchyBar does not create a repaint/subprocess storm.</li><li>Receipts are counted for at least two distinct session/location fixtures; no stale idle record survives deletion or owner teardown.</li><li>A fresh critic—not the implementer—checks the existing agents surface; no new page, nav item, or dashboard is smuggled into the fix.</li></ul></div></section>
+          <section data-kind="proof"><h4>Proof</h4><div class="proof"><p>Dotfiles wiring committed as <code>2f2ce5a</code> (<code>feat: register ocn plugin and document bootstrap</code>). The active JSONC registration points at <code>/Users/tom/dev/ocn/src/plugin.ts</code>; the JSONC parser accepted comments and trailing commas. <code>bun run doctor</code> is green: config defaults, writable state directory, both executable symlinks, plugin registration, and service health <code>0.0.0-beta-18684</code>. The missing <code>doctor</code> package verb was added during review so the documented probe is executable.</p><p>Live state receipts (service PID <code>90438</code>): <code>~/.local/state/ocn/cf6b732a8f65bc364be4348f509ce027.json</code> → directory <code>/Users/tom/dev/ocn</code>, project <code>ocn</code>, status <code>idle</code>; <code>~/.local/state/ocn/5acc5ab6fda605c18975f46c9f797e09.json</code> → directory <code>/Users/tom/dev/dotfiles</code>, project <code>dotfiles</code>, status <code>error</code>. The OCN headless probe replied <code>ok</code>. The dotfiles headless probe reached the plugin/state boundary but OpenCode2 returned <code>OpenAI Chat received content after the finish reason</code> twice; its error state is retained and was not manually deleted. Existing historical records were also present, so the status summary was <code>14</code> instances (<code>6</code> idle, <code>2</code> busy, <code>6</code> error, <code>0</code> prompting) across the live state directory.</p><p><code>ocn-tmux-status --json</code> returned valid versioned JSON with the expected counts and records for distinct <code>ocn</code> and <code>dotfiles</code> directories; the plain tmux probe returned the attention/working/rest summary. <code>tmux source-file ~/.config/tmux/tmux.conf</code> exited 0 and <code>status-right</code> still contains <code>ocn-tmux-status</code>. <code>sketchybar --reload</code> exited 0 and, after its asynchronous reload settled, <code>sketchybar --query widgets.agents</code> returned valid JSON. The secondary <code>/api/plugin</code> query reported an empty list at service location <code>/Users/tom</code>, the documented endpoint-location quirk; state files are the primary evidence. Records persist as idle/error because the configured TTL is 30 minutes; no state files were deleted.</p><p><code>bun run gate</code> passed: typecheck, 92 tests, lint (31 files), and smoke. <code>agents.lua</code> is byte-unchanged, so there is no net-new or modified UI surface; the page-vs-integrate gate is N/A. Native Aqua screenshots are unavailable in this sandbox, so GUI visual judgment is deferred to the user's real session. OCN PR #1 remains open and mergeable; the exact remaining feature-end step is to run the repository ship flow for PR #1 after the user refreshes the invalid GitHub token.</p></div></section>
+        </section>
+      </section>
+
+      <section id="breaking">
+        <h2>Breaking changes</h2>
+        <ul>
+          <li><strong>BREAKING (confirmed):</strong> The package's plugin entrypoint changes from the V1 async returned-hooks function to the OpenCode2 V2 <code>define({ id, setup })</code> shape. The user has confirmed V2-only: V1 OpenCode users remain on the previous OCN release.</li>
+          <li><strong>BREAKING:</strong> State filenames and records change from PID-only instance files to location/session-keyed records. Consumers must read the new schema; the existing tmux/SketchyBar count fields remain compatible.</li>
+          <li>The active dotfiles configuration changes from no registration/legacy examples to the V2 <code>plugins</code> field. No public HTTP API or top-level UI surface is added.</li>
+        </ul>
+      </section>
+
+      <section id="out-of-scope">
+        <h2>Out of scope</h2>
+        <ul>
+          <li>A new OCN dashboard, web page, nav item, or standalone SketchyBar widget.</li>
+          <li>A long-lived watcher/daemon unless the Phase 1 V2 event capability probe fails and the user approves Option 2.</li>
+          <li>Runbook/SSE adapters beyond the verified OpenCode2 service event stream.</li>
+          <li>Changing Tokyo Quiet colors, widget hierarchy, popup design, or unrelated tmux/SketchyBar behavior.</li>
+          <li>Editing OpenCode2's service database, service registration, credentials, or private service config.</li>
+          <li>Filing an upstream OpenCode compatibility issue unless the minimal V2 plugin probe reproduces a documented-beta regression after local package/config causes are ruled out.</li>
+        </ul>
+      </section>
+
+      <section id="agents-md-updates">
+        <h2>AGENTS.md updates</h2>
+        <p>The OCN root currently has no project <code>AGENTS.md</code>. The coder adds it at phase close; the dotfiles repo keeps any consumer-specific note in its existing documentation.</p>
+        <ul>
+          <li>Record the exact OpenCode2 beta and <code>@opencode-ai/plugin</code> package version verified together; docs/source mismatch is a stop condition, not a reason to guess.</li>
+          <li>Record that V2 state identity is canonical location plus session ID, while service PID is only owner metadata for cleanup.</li>
+          <li>Record the supported install path for compiled bins and the active V2 <code>plugins</code> registration source.</li>
+          <li>Record the read-only OCN gate/smoke/doctor probes and the existing tmux/SketchyBar consumer contract.</li>
+          <li>Record the integration-first rule: OCN status belongs in the existing tmux and agents surfaces; do not add an aggregation page/widget.</li>
+        </ul>
+      </section>
+
+      <section id="open-questions">
+        <h2>Decisions (approved)</h2>
+        <ol>
+          <li><strong>V2-only</strong> — drop V1 support; delete the V1 entrypoint. <span class="badge done">decided</span></li>
+          <li><strong>Local-path registration</strong> — the active <code>opencode.jsonc</code> points at the local OCN checkout; the full setup (clone, install, bin symlinks) is captured in the dotfiles bootstrap so another machine re-installs in one pass. <span class="badge done">decided</span></li>
+          <li><strong>Beta event capability</strong> — remains a Phase 1 stop/go gate: verify the exact pinned <code>@opencode-ai/plugin</code> beta exposes the documented event subscription; if not, stop and revisit the standalone watcher (Option 2). <span class="badge todo">gate</span></li>
+          <li><strong>TTL expiry with resurrection</strong> — idle records expire via a configurable TTL; any subsequent event for the session recreates the record; explicit session-deletion removes immediately. <span class="badge done">decided</span></li>
+          <li><strong>One PR</strong> — a single OCN package PR at feature end, with the dotfiles consumer wiring landing as that repo's conventional direct commit. <span class="badge done">decided</span></li>
+        </ol>
+      </section>
+    </main>
+  </body>
+</html>

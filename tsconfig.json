@@ -3,6 +3,7 @@
 		"target": "ESNext",
 		"module": "ESNext",
 		"moduleResolution": "bundler",
+		"resolveJsonModule": true,
 		"strict": true,
 		"esModuleInterop": true,
 		"skipLibCheck": true,
@@ -11,6 +12,6 @@
 		"declaration": true,
 		"types": ["bun"]
 	},
-	"include": ["src/**/*"],
-	"exclude": ["node_modules", "dist", "__tests__"]
+	"include": ["src/**/*", "__tests__/**/*"],
+	"exclude": ["node_modules", "dist"]
 }

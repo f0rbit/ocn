@@ -4,6 +4,12 @@
 	"description": "Terminal-native session notifications for OpenCode",
 	"type": "module",
 	"main": "src/plugin.ts",
+	"exports": {
+		".": "./src/plugin.ts",
+		"./config": "./src/config.ts",
+		"./state": "./src/state.ts",
+		"./tmux-status": "./src/tmux-status.ts"
+	},
 	"bin": {
 		"ocn-tmux-status": "scripts/ocn-tmux-status",
 		"ocn-status": "scripts/ocn-status"
@@ -17,17 +23,19 @@
 	},
 	"scripts": {
 		"test": "bun test",
-		"check": "bunx --bidi biome check --write .",
-		"typecheck": "bunx --bidi tsc --noEmit"
-	},
-	"peerDependencies": {
-		"@opencode-ai/plugin": ">=1.0.0"
+		"typecheck": "bunx tsc --noEmit",
+		"lint": "bunx biome check .",
+		"lint:fix": "bunx biome check --write .",
+		"doctor": "bun src/doctor.ts",
+		"check": "bun run lint && bun src/doctor.ts",
+		"smoke": "bun src/smoke.ts",
+		"gate": "bun run typecheck && bun test && bun run lint && bun run smoke"
 	},
 	"dependencies": {
+		"@opencode/plugin": "2.2.5",
 		"zod": "^3.24.0"
 	},
 	"devDependencies": {
-		"@opencode-ai/plugin": "^1.2.0",
 		"@biomejs/biome": "^1.9.0",
 		"@types/bun": "latest",
 		"typescript": "^5.8.0"
